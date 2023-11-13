@@ -18,7 +18,7 @@ class Challenge(BaseModel):
     HEADER_EMOJI: str
     INSERT_DT: datetime
     CHALLENGE_STATUS: ChallengeStatus
-    INSERT_USER: User
+    user: User
 
 
 class ChallengeCreate(BaseModel):

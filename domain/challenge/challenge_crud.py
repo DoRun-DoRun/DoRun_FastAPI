@@ -15,7 +15,7 @@ def get_challenge_list(db: Session):
 def create_challenge(db: Session, challenge_create: ChallengeCreate, current_user: User):
     db_challenge = ChallengeMaster(
         CHALLENGE_MST_NM=challenge_create.CHALLENGE_MST_NM,
-        USERS_UID=challenge_create.USERS_ID,
+        USERS_UID=challenge_create.USERS_UID,
         START_DT=challenge_create.START_DT,
         END_DT=challenge_create.END_DT,
         HEADER_EMOJI=challenge_create.HEADER_EMOJI,
