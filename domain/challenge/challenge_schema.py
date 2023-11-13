@@ -1,34 +1,34 @@
 from datetime import datetime
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from typing import List, Any
 
 from pydantic.v1 import validator
 
-from models import challenge_status
+from domain.user.user_schema import User
+from models import ChallengeStatus
 
 
 class Challenge(BaseModel):
     CHALLENGE_MST_NO: int
     CHALLENGE_MST_NM: str
-    USER_ID: List[int]
+    USERS_UID: List[int]
     START_DT: datetime
     END_DT: datetime
     HEADER_EMOJI: str
     INSERT_DT: datetime
-    INSERT_USER_ID: int
-    CHALLENGE_STATUS: challenge_status
+    CHALLENGE_STATUS: ChallengeStatus
+    INSERT_USER: User
 
 
 class ChallengeCreate(BaseModel):
     CHALLENGE_MST_NM: str
-    USER_ID: List[int]
+    USERS_UID: List[int]
     START_DT: datetime
     END_DT: datetime
     HEADER_EMOJI: str
     INSERT_DT: datetime
-    INSERT_USER_ID: int
-    CHALLENGE_STATUS: challenge_status
+    CHALLENGE_STATUS: ChallengeStatus
 
     @validator('*', pre=True)
     def not_empty(cls, value: Any, field) -> Any:
