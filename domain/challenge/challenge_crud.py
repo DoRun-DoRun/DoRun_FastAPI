@@ -1,15 +1,16 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+import random
 
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
-from domain.challenge.challenge_schema import ChallengeCreate
-from models import ChallengeMaster, User
+from domain.challenge.challenge_schema import ChallengeCreate, CompleteDailyGoal
+from domain.user import user_crud
+from models import ChallengeMaster, User, DailyComplete, TeamGoal
 
 
-def get_challenge_list(db: Session):
-    challenge_list = db.query(ChallengeMaster) \
-        .all()
-    return challenge_list
+def get_challenge_list(db: Session, user_uid: int):
+    return db.query(ChallengeMaster).filter(ChallengeMaster.USERS_UID.any(user_uid)).all()
 
 
 def create_challenge(db: Session, challenge_create: ChallengeCreate, current_user: User):
@@ -24,4 +25,54 @@ def create_challenge(db: Session, challenge_create: ChallengeCreate, current_use
         user=current_user
     )
     db.add(db_challenge)
+    db.commit()
+
+
+def create_team(db: Session, challenge_create: ChallengeCreate):
+    complete_users = [{"user": user, "done": False} for user in challenge_create.USERS_UID]
+    team_leader = user_crud.get_user(db, uid=random.choice(challenge_create.USERS_UID))
+    challenge = db.query(ChallengeMaster).order_by(ChallengeMaster.CHALLENGE_MST_NO.desc()).first()
+    db_team = TeamGoal(
+        COMPLETE_USERS=complete_users,
+        challenge=challenge,
+        user=team_leader,
+        START_DT=challenge_create.START_DT,
+        END_DT=challenge_create.START_DT + timedelta(days=7),
+        INSERT_DT=datetime.now(),
+        MODIFY_DT=datetime.now()
+    )
+    db.add(db_team)
+    db.commit()
+
+
+def get_challenge(db: Session, challenge_id: int):
+    return db.query(ChallengeMaster).filter(ChallengeMaster.CHALLENGE_MST_NO == challenge_id).first()
+
+
+def complete_daily_goal(db: Session,
+                        complete_daily: CompleteDailyGoal,
+                        current_user: User,
+                        current_challenge: ChallengeMaster):
+    db_daily = DailyComplete(
+        AUTH_IMAGE_FILE_NM=complete_daily.AUTH_IMAGE_FILE_NM,
+        COMMENTS=complete_daily.COMMENTS,
+        INSERT_DT=datetime.now(),
+        PERSON_GOAL_LIST=complete_daily.PERSON_GOAL_LIST,
+        challenge=current_challenge,
+        user=current_user,
+    )
+    db.add(db_daily)
+    db.commit()
+
+
+def complete_weekly_goal(db: Session,
+                         db_team: TeamGoal,
+                         current_user: User):
+    # 주간 목표를 완료 처리합니다.
+    for user in db_team.COMPLETE_USERS:
+        if user["user"] == current_user.UID:
+            user["done"] = True
+    flag_modified(db_team, "COMPLETE_USERS")
+    db_team.MODIFY_DT = datetime.now()
+    db.add(db_team)
     db.commit()

@@ -21,9 +21,5 @@ def generate_uid(db: Session) -> int:
     return new_uid
 
 
-# def get_existing_user(db: Session, user_create: UserCreate):
-#     return db.query(User).filter(User.USER_EMAIL == user_create.USER_EMAIL).first()
-
-
 def get_user(db: Session, uid: int):
     return db.query(User).filter(User.UID == uid).first()

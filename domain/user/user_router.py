@@ -26,7 +26,7 @@ ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/test/login")
 
 
-@router.post("/test/login")
+@router.post("/docs/login")
 def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     current_user = user_crud.get_user(db, uid=int(form_data.username))
     data = {
@@ -44,10 +44,6 @@ def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Sessio
 
 @router.post("/create/guest", response_model=user_schema.Token)
 def user_create(db: Session = Depends(get_db)):
-    # user = user_crud.get_existing_user(db, user_create=_user_create)
-    # if user:
-    #     raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-    #                         detail="이미 존재하는 EMAIL입니다.")
     new_uid = user_crud.generate_uid(db)
     user_crud.create_guest_user(db=db, uid=new_uid)
 

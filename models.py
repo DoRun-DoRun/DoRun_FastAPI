@@ -1,6 +1,7 @@
 import enum
 
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Enum, MetaData, ForeignKey, ARRAY
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Enum, MetaData, ForeignKey, ARRAY, \
+    JSON, Date
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -30,54 +31,10 @@ class User(Base):
     RECENT_LOGIN_DT = Column(DateTime)
     DISABLE_YN = Column(Boolean, default=False)
     DISABLE_DT = Column(DateTime)
-    # Here we define the name for the ENUM type
     SIGN_TYPE = Column(Enum(LoginType, name="LoginType"))
     USER_NM = Column(String)
     UID = Column(Integer, unique=True)
     USER_EMAIL = Column(String, unique=True)
-
-# class Friend(Base):
-#     __tablename__ = 'friend'
-#     FRIEND_NO = Column(Integer, primary_key=True)
-#     SENDER_ID = Column(Integer, ForeignKey('user.USER_NO'), nullable=False)
-#     RECIPIENT_ID = Column(Integer, ForeignKey('user.USER_NO'), nullable=False)
-#     INSERT_DT = Column(DateTime)
-#     ACCEPT_DT = Column(DateTime)
-#     STATUS = Column(Enum(accept_type, name="accept_type"), default=accept_type.PENDING)
-#
-#     # User와 Friend 간의 관계 설정
-#     sender = relationship('User', foreign_keys=[SENDER_ID], backref='sent_friend_requests')
-#     recipient = relationship('User', foreign_keys=[RECIPIENT_ID], backref='received_friend_requests')
-#
-# class Character(Base):
-#     __tablename__ = 'character'
-#     CHARACTER_NO = Column(Integer, primary_key=True)
-#     CHARACTER_NM = Column(String)
-#     INSERT_DT = Column(DateTime)
-#     UPDATE_DT = Column(DateTime)
-#
-# class Pet(Base):
-#     __tablename__ = 'pet'
-#     PET_NO = Column(Integer, primary_key=True)
-#     PET_NM = Column(String)
-#     INSERT_DT = Column(DateTime)
-#     UPDATE_DT = Column(DateTime)
-#
-# class Mypage(Base):
-#     __tablename__ = 'mypage'
-#     Mypage_NO = Column(Integer, primary_key=True)
-#     USER_ID = Column(Integer, ForeignKey('user.USER_NO'))  # 'user' 테이블의 USER_NO를 참조
-#     INSERT_DT = Column(DateTime)
-#     UPDATE_DT = Column(DateTime)
-#     # PostgreSQL의 ARRAY 타입을 사용하여 Character와 Pet의 ID 배열을 저장
-#     MY_CHARACTER = Column(ARRAY(Integer))
-#     MY_PET = Column(ARRAY(Integer))
-#     CURRENT_CHARACTER_NO = Column(Integer, ForeignKey('character.CHARACTER_NO'))
-#     CURRENT_PET_NO = Column(Integer, ForeignKey('pet.PET_NO'))
-#
-#     # 단일 관계 설정
-#     CURRENT_CHARACTER = relationship('Character', foreign_keys=[CURRENT_CHARACTER_NO])
-#     CURRENT_PET = relationship('Pet', foreign_keys=[CURRENT_PET_NO])
 
 
 class ChallengeStatus(enum.Enum):
@@ -93,8 +50,8 @@ class ChallengeMaster(Base):
     CHALLENGE_MST_NO = Column(Integer, primary_key=True)
     CHALLENGE_MST_NM = Column(String)
     USERS_UID = Column(ARRAY(Integer))
-    START_DT = Column(DateTime)
-    END_DT = Column(DateTime)
+    START_DT = Column(Date)
+    END_DT = Column(Date)
     HEADER_EMOJI = Column(String)
     INSERT_DT = Column(DateTime)
     INSERT_USER_UID = Column(Integer, ForeignKey('user.UID'), nullable=False)
@@ -102,3 +59,52 @@ class ChallengeMaster(Base):
     DELETE_YN = Column(Boolean, default=False)
     CHALLENGE_STATUS = Column(Enum(ChallengeStatus, name='ChallengeStatus'))
     user = relationship('User', backref='challenge_master_users')
+
+
+class DailyComplete(Base):
+    __tablename__ = 'daily_complete'
+
+    # Primary Key
+    PERSON_DAILY_NO = Column(Integer, primary_key=True)
+
+    # Foreign Keys
+    CHALLENGE_MST_ID = Column(Integer, ForeignKey('challenge_master.CHALLENGE_MST_NO'))
+    INSERT_USER_UID = Column(Integer, ForeignKey('user.UID'))
+    # EMOJI_SEND_USER_UID = Column(Integer, ForeignKey('user.UID'))
+
+    # Other Columns
+    # AUTH_IMAGE_FILE_ID = Column(Integer)
+    AUTH_IMAGE_FILE_NM = Column(String)
+    INSERT_DT = Column(DateTime)
+    COMMENTS = Column(String)
+    # MODIFY_DATE = Column(DateTime)
+
+    # JSON Column for List
+    PERSON_GOAL_LIST = Column(JSON)  # 리스트 데이터를 JSON 형태로 저장
+    REACTION_EMOJI = Column(JSON)  # [{EMOJI: str, UID: Int}, ]
+
+    # Relationships (옵션에 따라 필요한 경우)
+    challenge = relationship("ChallengeMaster", backref="daily_complete")
+    user = relationship("User", backref="daily_complete")
+    # emoji_sender = relationship("User", back_populates="emoji_sends")
+
+
+class TeamGoal(Base):
+    __tablename__ = 'team_goal'
+
+    TEAM_GOAL_NO = Column(Integer, primary_key=True)
+    TEAM_GOAL_NM = Column(String, default="주간 팀 목표를 정해주세요")
+
+    # Foreign Keys
+    CHALLENGE_MST_ID = Column(Integer, ForeignKey('challenge_master.CHALLENGE_MST_NO'))
+    TEAM_LEADER_ID = Column(Integer, ForeignKey('user.UID'))
+
+    COMPLETE_USERS = Column(JSON)
+    START_DT = Column(Date)
+    END_DT = Column(Date)
+    INSERT_DT = Column(DateTime)
+    MODIFY_DT = Column(DateTime)
+
+    # Relationships (옵션에 따라 필요한 경우)
+    challenge = relationship("ChallengeMaster", backref="team_goal")
+    user = relationship("User")
