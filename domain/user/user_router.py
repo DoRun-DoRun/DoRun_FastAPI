@@ -15,7 +15,8 @@ from domain.user import user_crud, user_schema
 from models import User
 
 router = APIRouter(
-    prefix="/api/user",
+    prefix="/user",
+    tags=["user"]
 )
 
 config = Config('.env')
@@ -23,7 +24,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(config('ACCESS_TOKEN_EXPIRE_MINUTES'))
 SECRET_KEY = config('SECRET_KEY')
 ALGORITHM = "HS256"
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/test/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/docs/login")
 
 
 @router.post("/docs/login")

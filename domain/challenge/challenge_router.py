@@ -11,7 +11,8 @@ from domain.user.user_router import get_current_user
 from models import User
 
 router = APIRouter(
-    prefix="/api/challenge",
+    prefix="/challenge",
+    tags=["challenge"]
 )
 
 
