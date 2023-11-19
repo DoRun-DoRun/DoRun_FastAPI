@@ -4,21 +4,13 @@ from models import User
 from datetime import datetime
 
 
-def create_guest_user(db: Session, uid: int):
-    db_user = User(USER_NM="사용자" + str(uid),
-                   SIGN_TYPE="GUEST",
-                   REGISTER_DT=datetime.now(),
-                   UID=uid)
+# 추후 사용자 이름을 랜덤 문자열 조합으로 만들면 좋겠음
+# 형용사 + 명사 (ex 부드러운 + 치즈케잌)
+def create_guest_user(db: Session):
+    db_user = User(USER_NM="Guest", SIGN_TYPE="GUEST")
     db.add(db_user)
     db.commit()
-    return db_user
-
-
-def generate_uid(db: Session) -> int:
-    last_user = db.query(User).order_by(User.USER_NO.desc()).first()
-    last_uid = last_user.UID if last_user else 1000000
-    new_uid = last_uid + 1
-    return new_uid
+    return db_user.UID
 
 
 def get_user(db: Session, uid: int):

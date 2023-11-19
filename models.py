@@ -1,7 +1,8 @@
 import enum
+from datetime import datetime
 
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Enum, MetaData, ForeignKey, ARRAY, \
-    JSON, Date, Table, Double
+    JSON, Date, Table, Double, Sequence
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -41,7 +42,6 @@ Challenge_User = Table(
     Column('MODIFY_DT', DateTime),
 )
 
-
 # challenge_user_item = Table(
 #     'challenge_user_item',
 #     Base.metadata,
@@ -68,11 +68,11 @@ class User(Base):
     USER_NO = Column(Integer, primary_key=True)
     SIGN_TYPE = Column(Enum(LoginType, name="LoginType"))
     USER_NM = Column(String)
-    UID = Column(Integer, unique=True)
+    UID = Column(Integer, Sequence('user_uid_seq', start=1000000), unique=True)
     USER_EMAIL = Column(String, unique=True)
 
-    REGISTER_DT = Column(DateTime)
-    UPDATE_DT = Column(DateTime)
+    REGISTER_DT = Column(DateTime, default=datetime.now())
+    UPDATE_DT = Column(DateTime, default=datetime.now())
     RECENT_LOGIN_DT = Column(DateTime)
     DISABLE_YN = Column(Boolean, default=False)
     DISABLE_DT = Column(DateTime)
@@ -128,7 +128,9 @@ class TeamGoal(Base):
     CHALLENGE = relationship("ChallengeMaster", backref="Team_goal")
     USER_ID = Column(Integer, ForeignKey("user.USER_NO"))
     LEADER_ID = Column(Integer, ForeignKey("user.USER_NO"))
-    USER = relationship("User", backref="Team_goal")
+
+    USER = relationship("User", foreign_keys=[USER_ID], backref="team_goals_as_member")
+    LEADER = relationship("User", foreign_keys=[LEADER_ID], backref="team_goals_as_leader")
 
 
 class AdditionalGoal(Base):

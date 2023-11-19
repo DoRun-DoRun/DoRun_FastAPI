@@ -45,8 +45,7 @@ def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Sessio
 
 @router.post("/create/guest", response_model=user_schema.Token)
 def user_create(db: Session = Depends(get_db)):
-    new_uid = user_crud.generate_uid(db)
-    user_crud.create_guest_user(db=db, uid=new_uid)
+    new_uid = user_crud.create_guest_user(db=db)
 
     # Access Token 생성
     data = {
