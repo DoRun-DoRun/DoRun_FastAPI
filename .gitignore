@@ -2,6 +2,6 @@
 myapi.db
 *.pyc
 __pycache__
-migrations
+#migrations
 alembic.ini
 .env
