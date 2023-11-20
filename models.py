@@ -37,8 +37,8 @@ Challenge_User = Table(
     Column('USER_NO', Integer, ForeignKey('user.USER_NO'), primary_key=True),
     Column('CHALLENGE_MST_NO', Integer, ForeignKey('challenge_master.CHALLENGE_MST_NO'), primary_key=True),
     Column('PROGRESS', Double, default=0.0),
-    Column('STATUS', Enum(AcceptType, name='AcceptType'), nullable=False),
-    Column('INSERT_DT', DateTime),
+    Column('STATUS', Enum(AcceptType, name='AcceptType'), default="PENDING"),
+    Column('INSERT_DT', DateTime, default=datetime.now()),
     Column('MODIFY_DT', DateTime),
 )
 
@@ -92,10 +92,14 @@ class ChallengeMaster(Base):
     CHALLENGE_STATUS = Column(Enum(ChallengeStatus, name='ChallengeStatus'))
 
     INSERT_DT = Column(DateTime)
+    MODIFY_DT = Column(DateTime)
     DELETE_DT = Column(DateTime)
     DELETE_YN = Column(Boolean, default=False)
 
-    USER = relationship('User', secondary=Challenge_User, backref="Challenge_User")
+    USER_ID = Column(Integer, ForeignKey("user.USER_NO"))
+    USER = relationship("User", backref="Challenge_Master")
+
+    MEMBER = relationship('User', secondary=Challenge_User, backref="Challenge_User")
 
 
 # 하루가 넘어가면, 해당 TodoItem들을 복사해 생성하기
@@ -106,7 +110,7 @@ class PersonGoal(Base):
     PERSON_GOAL_NM = Column(String, nullable=False)
     IS_DONE = Column(Boolean, default=False)
 
-    INSERT_DT = Column(DateTime)
+    INSERT_DT = Column(DateTime, default=datetime.now())
 
     CHALLENGE_MST_ID = Column(Integer, ForeignKey('challenge_master.CHALLENGE_MST_NO'))
     CHALLENGE = relationship("ChallengeMaster", backref="Person_Goal")
