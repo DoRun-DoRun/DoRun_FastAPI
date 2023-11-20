@@ -1,11 +1,10 @@
 from datetime import datetime, date
 
 from pydantic import BaseModel
-from typing import List, Any, Dict
+from typing import List, Any
 
 from pydantic.v1 import validator
 
-from domain.user.user_schema import User
 from models import ChallengeStatus
 
 
@@ -34,15 +33,3 @@ class ChallengeCreate(BaseModel):
         if isinstance(value, str) and not value.strip():
             raise ValueError(f'{field.name} 필드에 빈 값은 허용 되지 않습니다.')
         return value
-
-
-class CompleteDailyGoal(BaseModel):
-    AUTH_IMAGE_FILE_NM: str
-    CHALLENGE_MST_NO: int
-    COMMENTS: str
-    PERSON_GOAL_LIST: List[Dict[str, str]]
-
-
-class CompleteWeeklyGoal(BaseModel):
-    CHALLENGE_MST_NO: int
-

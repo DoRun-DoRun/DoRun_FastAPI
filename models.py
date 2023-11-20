@@ -91,7 +91,7 @@ class ChallengeMaster(Base):
     HEADER_EMOJI = Column(String)
     CHALLENGE_STATUS = Column(Enum(ChallengeStatus, name='ChallengeStatus'))
 
-    INSERT_DT = Column(DateTime)
+    INSERT_DT = Column(DateTime, default=datetime.now())
     MODIFY_DT = Column(DateTime)
     DELETE_DT = Column(DateTime)
     DELETE_YN = Column(Boolean, default=False)
@@ -122,18 +122,20 @@ class TeamGoal(Base):
     __tablename__ = "team_goal"
 
     TEAM_GOAL_NO = Column(Integer, primary_key=True)
-    TEAM_GOAL_NM = Column(String, nullable=False)
+    TEAM_GOAL_NM = Column(String, default="팀 목표를 입력해주세요.")
     IS_DONE = Column(Boolean, default=False)
 
-    INSERT_DT = Column(DateTime)
+    INSERT_DT = Column(DateTime, default=datetime.now())
     MODIFY_DT = Column(DateTime)
+
+    START_DT = Column(Date)
+    END_DT = Column(Date)
 
     CHALLENGE_MST_ID = Column(Integer, ForeignKey('challenge_master.CHALLENGE_MST_NO'))
     CHALLENGE = relationship("ChallengeMaster", backref="Team_goal")
     USER_ID = Column(Integer, ForeignKey("user.USER_NO"))
-    LEADER_ID = Column(Integer, ForeignKey("user.USER_NO"))
-
     USER = relationship("User", foreign_keys=[USER_ID], backref="team_goals_as_member")
+    LEADER_ID = Column(Integer, ForeignKey("user.USER_NO"))
     LEADER = relationship("User", foreign_keys=[LEADER_ID], backref="team_goals_as_leader")
 
 
@@ -162,7 +164,7 @@ class DailyComplete(Base):
     AUTH_IMAGE_FILE_NM = Column(String)
     COMMENTS = Column(String)
 
-    INSERT_DT = Column(DateTime)
+    INSERT_DT = Column(DateTime, default=datetime.now())
 
     CHALLENGE_MST_ID = Column(Integer, ForeignKey('challenge_master.CHALLENGE_MST_NO'))
     CHALLENGE = relationship("ChallengeMaster", backref="Daily_Complete")
