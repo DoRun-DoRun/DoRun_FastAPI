@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import random
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -37,8 +38,6 @@ def get_challenge_list(current_user: User):
 
 def get_challenge_detail(db: Session, challenge_no: int):
     challenge = get_challenge(db, challenge_no)
-    if not challenge:
-        return
 
     return challenge_schema.Challenge(
         CHALLENGE_MST_NO=challenge.CHALLENGE_MST_NO,
@@ -54,8 +53,10 @@ def get_challenge_detail(db: Session, challenge_no: int):
 
 
 def get_challenge(db: Session, challenge_no: int):
-    return db.query(ChallengeMaster).filter(ChallengeMaster.CHALLENGE_MST_NO == challenge_no).first()
-
+    _challenge = db.query(ChallengeMaster).filter(ChallengeMaster.CHALLENGE_MST_NO == challenge_no).first()
+    if not (_challenge):
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    return _challenge
 
 def create_challenge(db: Session, challenge_create: ChallengeCreate, current_user: User):
     db_challenge = ChallengeMaster(

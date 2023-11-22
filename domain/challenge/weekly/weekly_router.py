@@ -20,9 +20,5 @@ def complete_weekly(challenge_mst_no: int, db: Session = Depends(get_db),
     # 챌린지 정보를 가져옵니다.
     _challenge = get_challenge(db, challenge_no=challenge_mst_no)
 
-    # 챌린지가 존재하는지 확인합니다.
-    if not _challenge:
-        raise HTTPException(status_code=404, detail="Challenge not found")
-
     if not weekly_crud.complete_weekly_goal(db, current_challenge=_challenge, current_user=_current_user):
         raise HTTPException(status_code=404, detail="TEAM GOAL not found")
