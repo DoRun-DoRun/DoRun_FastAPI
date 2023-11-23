@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 
 from database import upload_file
-from domain.user.user_router import get_current_user
+from domain.user.user_crud import get_current_user
 from models import User
 
 
