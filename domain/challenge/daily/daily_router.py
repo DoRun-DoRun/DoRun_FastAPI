@@ -5,7 +5,7 @@ from starlette import status
 from database import get_db
 from domain.challenge.challenge_crud import get_challenge
 from domain.challenge.daily import daily_schema, daily_crud
-from domain.user.user_router import get_current_user
+from domain.user.user_crud import get_current_user
 from models import User
 
 router = APIRouter(
