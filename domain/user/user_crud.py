@@ -37,7 +37,7 @@ def encode_token(sub: str, is_exp: bool):
         "sub": sub,
     }
     if is_exp:
-        data.exp = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        data["exp"] = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
     return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
 
