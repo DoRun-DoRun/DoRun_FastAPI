@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from domain.challenge.daily.daily_schema import CompleteDailyGoal, CreateTodoItem, GetTodoItem, UpdateTodoItem
@@ -19,8 +20,14 @@ def create_todo_item(db: Session,
     db.commit()
 
 
+# def get_todo_item_detail(db: Session, person_goal_no: int) :
+#     todo_item = get_todo_item(db, person_goal_no)
+#     
+#     return dail
+
 def get_todo_item(db: Session, person_goal_no: int):
-    return db.query(PersonGoal).filter(PersonGoal.PERSON_GOAL_NO == person_goal_no).first()
+    person_goal = db.query(PersonGoal).filter(PersonGoal.PERSON_GOAL_NO == person_goal_no).first()
+    return person_goal
 
 
 def update_todo_item(db: Session,

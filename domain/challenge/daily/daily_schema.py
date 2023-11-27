@@ -10,7 +10,6 @@ class GetTodoItem(BaseModel):
     PERSON_GOAL_NO: int
     PERSON_GOAL_NM: str
     IS_DONE: bool
-    # USER_ID: int
 
 
 class UpdateTodoItem(BaseModel):
