@@ -10,7 +10,7 @@ from domain.challenge.challenge_schema import ChallengeCreate
 from domain.challenge.daily.daily_schema import CompleteDailyGoal
 from domain.user import user_crud
 from domain.user.user_crud import get_user
-from models import ChallengeMaster, User, DailyComplete, TeamGoal, Challenge_User, PersonGoal
+from models import ChallengeMaster, User, PersonDailyGoalComplete, TeamWeeklyGoal, Challenge_User, PersonDailyGoal
 
 
 def get_challenge_list(current_user: User):
@@ -76,7 +76,7 @@ def create_challenge(db: Session, challenge_create: ChallengeCreate, current_use
         team_leader = get_user(db, uid=random.choice(challenge_create.USERS_UID))
         if user:
             user.Challenge_User.append(db_challenge)
-            db_team = TeamGoal(
+            db_team = TeamWeeklyGoal(
                 USER=user,
                 LEADER=team_leader,
                 CHALLENGE=db_challenge,
