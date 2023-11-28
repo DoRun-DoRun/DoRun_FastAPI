@@ -1,22 +1,79 @@
 from datetime import datetime, date
 
 from pydantic import BaseModel
-from typing import List, Any
+from typing import List, Any, Optional
 
 from pydantic.v1 import validator
 
-from models import ChallengeStatus
+from models import ChallengeStatus, AcceptType
+
+
+class ChallengeParticipant(BaseModel):
+    UID: int
+    ACCEPT_STATUS: Optional[AcceptType]
 
 
 class Challenge(BaseModel):
     CHALLENGE_MST_NO: int
     CHALLENGE_MST_NM: str
-    USERS_UID: List[int]
     START_DT: datetime
     END_DT: datetime
     HEADER_EMOJI: str
     CHALLENGE_STATUS: ChallengeStatus
-    USER_UID: int
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class ChallengeAll(Challenge):
+    PROGRESS: float
+
+
+class ChallengePending(Challenge):
+    PARTICIPANTS: List[ChallengeParticipant]
+
+
+class PersonDailyGoalPydantic(BaseModel):
+    PERSON_NO: int
+    PERSON_NM: Optional[str]
+    IS_DONE: bool
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class TeamWeeklyGoalPydantic(BaseModel):
+    TEAM_NO: int
+    TEAM_NM: str
+    IS_DONE: bool
+    CHALLENGE_USER_NO: int
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class AdditionalGoalPydantic(BaseModel):
+    ADDITIONAL_NO: int
+    ADDITIONAL_NM: str
+    IS_DONE: bool
+    IMAGE_FILE_NM: Optional[str]
+    START_DT: datetime
+    END_DT: datetime
+    CHALLENGE_USER_NO: int
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class ChallengeDetail(BaseModel):
+    challenge: Challenge
+    personGoal: List[PersonDailyGoalPydantic]
+    teamGoal: List[TeamWeeklyGoalPydantic]
+    additionalGoal: List[AdditionalGoalPydantic]
 
 
 class ChallengeCreate(BaseModel):

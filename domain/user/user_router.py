@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from database import get_db
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import encode_token, get_current_user
-from models import User
+from domain.user.user_schema import CreateUser
+from models import User, SignType
 
 router = APIRouter(
     prefix="/user",
@@ -26,9 +27,9 @@ def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Sessio
     }
 
 
-@router.post("/create/guest", response_model=user_schema.Token)
-def user_create(db: Session = Depends(get_db)):
-    new_uid = user_crud.create_guest_user(db=db)
+@router.post("/create/{sign_type}", response_model=user_schema.Token)
+def user_create(sign_type: SignType, user: CreateUser, db: Session = Depends(get_db)):
+    new_uid = user_crud.create_user(sign_type, user, db)
 
     access_token = encode_token(str(new_uid), is_exp=True)
     refresh_token = encode_token(str(new_uid), is_exp=False)

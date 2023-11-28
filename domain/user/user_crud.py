@@ -7,7 +7,8 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import User
+from domain.user.user_schema import CreateUser
+from models import User, SignType
 
 from datetime import datetime, timedelta
 
@@ -21,8 +22,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/docs/login")
 
 # 추후 사용자 이름을 랜덤 문자열 조합으로 만들면 좋겠음
 # 형용사 + 명사 (ex 부드러운 + 치즈케잌)
-def create_guest_user(db: Session):
-    db_user = User(USER_NM="Guest", SIGN_TYPE="GUEST")
+def create_user(sign_type: SignType, user: CreateUser, db: Session):
+    user_nm = user.USER_NM if user.USER_NM else "GUEST"
+
+    db_user = User(USER_NM=user_nm, SIGN_TYPE=sign_type,
+                   USER_EMAIL=user.USER_EMAIL, ID_TOKEN=user.ID_TOKEN)
     db.add(db_user)
     db.commit()
     return db_user.UID

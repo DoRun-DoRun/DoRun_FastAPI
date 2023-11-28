@@ -1,4 +1,8 @@
+from typing import Optional
+
 from pydantic import BaseModel
+
+from models import SignType
 
 
 class Token(BaseModel):
@@ -8,6 +12,7 @@ class Token(BaseModel):
     UID: int
 
 
-class User(BaseModel):
-    UID: int
-    USER_NM: str
+class CreateUser(BaseModel):
+    ID_TOKEN: Optional[str] = None
+    USER_NM: Optional[str] = None
+    USER_EMAIL: Optional[str] = None

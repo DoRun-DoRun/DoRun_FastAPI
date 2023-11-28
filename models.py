@@ -61,6 +61,7 @@ class User(Base):
     USER_NM = Column(String)
     UID = Column(Integer, Sequence('user_uid_seq', start=1000000), unique=True, index=True)
     USER_EMAIL = Column(String, unique=True)
+    ID_TOKEN = Column(String)
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -69,7 +70,7 @@ class User(Base):
     DISABLE_YN = Column(Boolean, default=False)
     DISABLE_DT = Column(DateTime)
 
-    CHALLENGE = relationship('ChallengeMaster', backref="user")
+    CHALLENGES = relationship('ChallengeUser', back_populates='USER')
 
 
 class UserSetting(Base):
@@ -130,7 +131,7 @@ class ChallengeMaster(Base):
     DELETE_DT = Column(DateTime)
     DELETE_YN = Column(Boolean, default=False)
 
-    MEMBER = relationship('User', backref="challenge_master")
+    USERS = relationship('ChallengeUser', back_populates='CHALLENGE_MST')
 
 
 class ChallengeUser(Base):
@@ -146,7 +147,10 @@ class ChallengeUser(Base):
     IS_LEADER = Column(Boolean)
 
     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
+    USER = relationship('User', back_populates='CHALLENGES')
+
     CHALLENGE_MST_NO = Column(Integer, ForeignKey('challenge_master.CHALLENGE_MST_NO'))
+    CHALLENGE_MST = relationship('ChallengeMaster', back_populates='USERS')
 
     # Index('ix_challenge_users_user_no', 'USER_NO')
     # Index('ix_challenge_users_challenge_mst_no', 'CHALLENGE_MST_NO')
@@ -170,8 +174,8 @@ class TeamWeeklyGoal(Base):
     __tablename__ = 'team_weekly_goal'
 
     TEAM_NO = Column(Integer, primary_key=True)
-    TEAM_NM = Column(String)
-    IS_DONE = Column(Boolean)
+    TEAM_NM = Column(String, default="팀 목표를 입력해주세요")
+    IS_DONE = Column(Boolean, default=False)
     START_DT = Column(DateTime)
     END_DT = Column(DateTime)
 
