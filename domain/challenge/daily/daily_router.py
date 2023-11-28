@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from starlette import status
 
 from database import get_db
-from domain.challenge.challenge_crud import get_challenge_by_id
+from domain.challenge.challenge_crud import get_challenge_master_by_id
 from domain.challenge.daily import daily_schema, daily_crud
 from domain.user.user_router import get_current_user
 from models import User
@@ -18,7 +18,7 @@ router = APIRouter(
 def create_todo_item(_create_todo: daily_schema.CreateTodoItem,
                      db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
-    _current_challenge = get_challenge_by_id(db, challenge_no=_create_todo.CHALLENGE_MST_NO)
+    _current_challenge = get_challenge_master_by_id(db, challenge_no=_create_todo.CHALLENGE_MST_NO)
     daily_crud.create_todo_item(db, create_todo=_create_todo,
                                 current_user=_current_user,
                                 current_challenge=_current_challenge)
@@ -59,7 +59,7 @@ def delete_todo_item(_delete_todo: daily_schema.DeleteTodoItem,
 def complete_daily(_complete_daily: daily_schema.CompleteDailyGoal,
                    db: Session = Depends(get_db),
                    _current_user: User = Depends(get_current_user)):
-    _challenge = get_challenge_by_id(db, challenge_no=_complete_daily.CHALLENGE_MST_NO)
+    _challenge = get_challenge_master_by_id(db, challenge_no=_complete_daily.CHALLENGE_MST_NO)
     daily_crud.complete_daily_goal(db, complete_daily=_complete_daily,
                                    current_challenge=_challenge,
                                    current_user=_current_user)
