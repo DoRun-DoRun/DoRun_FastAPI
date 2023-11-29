@@ -38,7 +38,6 @@ class TeamWeeklyGoalPydantic(BaseModel):
     TEAM_NO: int
     TEAM_NM: str
     IS_DONE: bool
-    CHALLENGE_USER_NO: int
 
     class Config:
         from_attributes = True
@@ -51,13 +50,13 @@ class AdditionalGoalPydantic(BaseModel):
     IMAGE_FILE_NM: Optional[str]
     START_DT: datetime
     END_DT: datetime
-    CHALLENGE_USER_NO: int
 
     class Config:
         from_attributes = True
 
 
 class ChallengeDetail(BaseModel):
+    CHALLENGE_USER_NO: int
     challenge: Challenge
     personGoal: List[PersonDailyGoalPydantic]
     teamGoal: List[TeamWeeklyGoalPydantic]

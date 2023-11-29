@@ -14,7 +14,7 @@ router = APIRouter(
 )
 
 
-@router.get("/all", response_model=list[challenge_schema.Challenge])
+@router.get("/list", response_model=list[challenge_schema.Challenge])
 def challenge_list(db: Session = Depends(get_db),
                    _current_user: User = Depends(get_current_user)):
     _challenge_list = get_challenge_list(db, _current_user)
@@ -25,7 +25,7 @@ def challenge_list(db: Session = Depends(get_db),
     return _challenge_list
 
 
-@router.get("/detail/{challenge_mst_no}", response_model=challenge_schema.ChallengeDetail)
+@router.get("/{challenge_mst_no}", response_model=challenge_schema.ChallengeDetail)
 def challenge_detail(challenge_mst_no: int, db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
     _challenge = get_challenge_detail(db, user_no=_current_user.USER_NO, challenge_mst_no=challenge_mst_no)
@@ -36,9 +36,11 @@ def challenge_detail(challenge_mst_no: int, db: Session = Depends(get_db),
     return _challenge
 
 
-@router.post("/create", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("", status_code=status.HTTP_204_NO_CONTENT)
 def challenge_create(_challenge_create: challenge_schema.ChallengeCreate,
                      db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
     challenge_crud.create_challenge(db, challenge_create=_challenge_create,
                                     current_user=_current_user)
+
+    return {"message": "challenge_create success"}

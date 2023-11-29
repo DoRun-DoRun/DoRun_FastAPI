@@ -24,5 +24,5 @@ class DeleteTodoItem(BaseModel):
 
 class CompleteDailyGoal(BaseModel):
     AUTH_IMAGE_FILE_NM: str
-    CHALLENGE_MST_NO: int
+    CHALLENGE_USER_NO: int
     COMMENTS: str

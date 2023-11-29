@@ -42,6 +42,9 @@ def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int) -> Di
         ChallengeUser.CHALLENGE_MST_NO == challenge_mst_no
     ).first()
 
+    if not challenge_user:
+        raise HTTPException(status_code=404, detail="challenge_user not found")
+
     # ChallengeMaster 정보 검색
     challenge_master = db.query(ChallengeMaster).filter(
         ChallengeMaster.CHALLENGE_MST_NO == challenge_user.CHALLENGE_MST_NO).first()
@@ -68,6 +71,7 @@ def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int) -> Di
 
     # Pydantic 모델을 사용하여 결과 구조화
     return {
+        "CHALLENGE_USER_NO": challenge_user.CHALLENGE_USER_NO,
         "challenge": Challenge.model_validate(challenge_master),
         "personGoal": [PersonDailyGoalPydantic.model_validate(goal) for goal in person_goals],
         "teamGoal": [TeamWeeklyGoalPydantic.model_validate(goal) for goal in team_goals],

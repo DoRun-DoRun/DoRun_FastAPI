@@ -9,8 +9,8 @@ from domain.user.user_router import get_current_user
 from models import User
 
 router = APIRouter(
-    prefix="/challenge",
-    tags=["challenge"]
+    prefix="/person_goal",
+    tags=["person_goal"]
 )
 
 
@@ -41,7 +41,7 @@ def update_todo_item(_update_todo: daily_schema.UpdateTodoItem,
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="수정 권한이 없습니다.")
     daily_crud.update_todo_item(db=db, db_person_goal=db_person_goal,
-                                  person_goal_update=_update_todo)
+                                person_goal_update=_update_todo)
 
 
 @router.delete("/delete/todo_item", status_code=status.HTTP_204_NO_CONTENT)
@@ -55,11 +55,11 @@ def delete_todo_item(_delete_todo: daily_schema.DeleteTodoItem,
     daily_crud.delete_todo_item(db=db, db_person_goal=db_person_goal)
 
 
-@router.post("/complete/daily", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/complete/all", status_code=status.HTTP_204_NO_CONTENT)
 def complete_daily(_complete_daily: daily_schema.CompleteDailyGoal,
                    db: Session = Depends(get_db),
                    _current_user: User = Depends(get_current_user)):
-    _challenge = get_challenge_master_by_id(db, challenge_no=_complete_daily.CHALLENGE_MST_NO)
+    _challenge = get_challenge_master_by_id(db, _complete_daily.CHALLENGE_MST_NO)
     daily_crud.complete_daily_goal(db, complete_daily=_complete_daily,
                                    current_challenge=_challenge,
                                    current_user=_current_user)

@@ -52,8 +52,7 @@ def complete_daily_goal(db: Session,
     db_daily = PersonDailyGoalComplete(
         AUTH_IMAGE_FILE_NM=complete_daily.AUTH_IMAGE_FILE_NM,
         COMMENTS=complete_daily.COMMENTS,
-        CHALLENGE=current_challenge,
-        USER=current_user,
+
     )
     db.add(db_daily)
     db.commit()

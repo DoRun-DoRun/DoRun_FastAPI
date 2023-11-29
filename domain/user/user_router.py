@@ -27,7 +27,7 @@ def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Sessio
     }
 
 
-@router.post("/create/{sign_type}", response_model=user_schema.Token)
+@router.post("/{sign_type}", response_model=user_schema.Token)
 def user_create(sign_type: SignType, user: CreateUser, db: Session = Depends(get_db)):
     new_uid = user_crud.create_user(sign_type, user, db)
 
@@ -42,7 +42,7 @@ def user_create(sign_type: SignType, user: CreateUser, db: Session = Depends(get
     }
 
 
-@router.post("/login")
+@router.get("")
 def login_for_access_token(current_user: User = Depends(get_current_user)):
     access_token = encode_token(str(current_user.UID), is_exp=True)
 
