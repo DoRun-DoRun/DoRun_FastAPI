@@ -20,11 +20,6 @@ def create_todo_item(db: Session,
     db.commit()
 
 
-# def get_todo_item_detail(db: Session, person_goal_no: int) :
-#     todo_item = get_todo_item(db, person_goal_no)
-#     
-#     return dail
-
 def get_todo_item(db: Session, person_goal_no: int):
     person_goal = db.query(PersonDailyGoal).filter(PersonDailyGoal.PERSON_GOAL_NO == person_goal_no).first()
     return person_goal

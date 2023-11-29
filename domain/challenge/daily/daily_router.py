@@ -14,7 +14,7 @@ router = APIRouter(
 )
 
 
-@router.post("/create/todo_item", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("", status_code=status.HTTP_204_NO_CONTENT)
 def create_todo_item(_create_todo: daily_schema.CreateTodoItem,
                      db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
@@ -24,15 +24,7 @@ def create_todo_item(_create_todo: daily_schema.CreateTodoItem,
                                 current_challenge=_current_challenge)
 
 
-@router.get("/todo_item/{person_goal_no}", response_model=daily_schema.GetTodoItem)
-def get_todo_item(person_goal_no: int, db: Session = Depends(get_db)):
-    person_goal = daily_crud.get_todo_item(db=db, person_goal_no=person_goal_no)
-    if not person_goal:
-        raise HTTPException(status_code=404, detail="해당 개인 목표를 찾을 수 없습니다.")
-    return person_goal
-
-
-@router.put("/update/todo_item/{person_goal_no}", status_code=status.HTTP_204_NO_CONTENT)
+@router.put("", status_code=status.HTTP_204_NO_CONTENT)
 def update_todo_item(_update_todo: daily_schema.UpdateTodoItem,
                      db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
