@@ -15,36 +15,36 @@ router = APIRouter(
 
 
 @router.post("", status_code=status.HTTP_204_NO_CONTENT)
-def create_todo_item(_create_todo: daily_schema.CreateTodoItem,
+def create_person_goal(_create_todo: daily_schema.CreatePersonGoal,
                      db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
     _current_challenge = get_challenge_master_by_id(db, challenge_no=_create_todo.CHALLENGE_MST_NO)
-    daily_crud.create_todo_item(db, create_todo=_create_todo,
+    daily_crud.create_person_goal(db, create_todo=_create_todo,
                                 current_user=_current_user,
                                 current_challenge=_current_challenge)
 
 
 @router.put("", status_code=status.HTTP_204_NO_CONTENT)
-def update_todo_item(_update_todo: daily_schema.UpdateTodoItem,
+def update_person_goal(_update_todo: daily_schema.UpdatePersonGoal,
                      db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
-    db_person_goal = daily_crud.get_todo_item(db, person_goal_no=_update_todo.PERSON_GOAL_NO)
+    db_person_goal = daily_crud.get_person_goal(db, person_goal_no=_update_todo.PERSON_GOAL_NO)
     if _current_user.USER_NO != db_person_goal.USER_ID:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="수정 권한이 없습니다.")
-    daily_crud.update_todo_item(db=db, db_person_goal=db_person_goal,
+    daily_crud.update_person_goal(db=db, db_person_goal=db_person_goal,
                                 person_goal_update=_update_todo)
 
 
-@router.delete("/delete/todo_item", status_code=status.HTTP_204_NO_CONTENT)
-def delete_todo_item(_delete_todo: daily_schema.DeleteTodoItem,
+@router.delete("/delete/person_goal", status_code=status.HTTP_204_NO_CONTENT)
+def delete_person_goal(_delete_todo: daily_schema.DeletePersonGoal,
                      db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
-    db_person_goal = daily_crud.get_todo_item(db, person_goal_no=_delete_todo.PERSON_GOAL_NO)
+    db_person_goal = daily_crud.get_person_goal(db, person_goal_no=_delete_todo.PERSON_GOAL_NO)
     if _current_user.USER_NO != db_person_goal.USER_ID:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="삭제 권한이 없습니다.")
-    daily_crud.delete_todo_item(db=db, db_person_goal=db_person_goal)
+    daily_crud.delete_person_goal(db=db, db_person_goal=db_person_goal)
 
 
 @router.post("/complete/all", status_code=status.HTTP_204_NO_CONTENT)
