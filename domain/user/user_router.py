@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -27,9 +27,12 @@ def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Sessio
     }
 
 
-@router.post("/{sign_type}", response_model=user_schema.Token)
-def user_create(sign_type: SignType, user: CreateUser, db: Session = Depends(get_db)):
-    new_uid = user_crud.create_user(sign_type, user, db)
+@router.post("", response_model=user_schema.Token)
+def user_create(user: CreateUser, db: Session = Depends(get_db)):
+    new_uid = user_crud.create_user(user, db)
+
+    if not new_uid:
+        raise HTTPException(status_code=404, detail="유저 생성 실패")
 
     access_token = encode_token(str(new_uid), is_exp=True)
     refresh_token = encode_token(str(new_uid), is_exp=False)
