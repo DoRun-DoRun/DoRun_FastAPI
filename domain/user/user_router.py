@@ -3,13 +3,12 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from database import get_db
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import encode_token, get_current_user
-from domain.user.user_schema import CreateUser, UpdateUser, UserPydantic
+from domain.user.user_schema import CreateUser, UpdateUser, UserPydantic, UserMyPagePydantic
 from models import User
 
 router = APIRouter(
@@ -20,7 +19,7 @@ router = APIRouter(
 
 @router.post("/docs/login")
 def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    current_user = user_crud.get_user(db, uid=int(form_data.username))
+    current_user = user_crud.get_user_by_uid(db, uid=int(form_data.username))
     access_token = encode_token(str(current_user.UID), is_exp=True)
 
     return {
@@ -48,7 +47,14 @@ def create_user(user: CreateUser, db: Session = Depends(get_db)):
     }
 
 
-@router.get("")
+# @router.get("", response_model=UserMyPagePydantic)
+# def get_user(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+#     user_data = user_crud.get_user(db, current_user)
+#
+#     return user_data
+
+
+@router.get("/login")
 def login_for_access_token(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     access_token = encode_token(str(current_user.UID), is_exp=True)
 

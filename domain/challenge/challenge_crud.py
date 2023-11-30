@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticipant, Challenge, PersonDailyGoalPydantic, \
     TeamWeeklyGoalPydantic, AdditionalGoalPydantic
 from domain.desc.utils import calculate_progress
-from domain.user.user_crud import get_user
+from domain.user.user_crud import get_user_by_uid
 from models import ChallengeMaster, User, TeamWeeklyGoal, ChallengeUser, PersonDailyGoal, AdditionalGoal
 
 
@@ -114,8 +114,8 @@ def create_challenge(db: Session, challenge_create: ChallengeCreate, current_use
 
     # USERS_UID를 기반으로 챌린지에 참여중인 유저를 가져옴
     for uid in challenge_create.USERS_UID:
-        user = get_user(db, uid)
-        team_leader = get_user(db, uid=random.choice(challenge_create.USERS_UID))
+        user = get_user_by_uid(db, uid)
+        team_leader = get_user_by_uid(db, uid=random.choice(challenge_create.USERS_UID))
         if user:
             db_challenge_user = ChallengeUser(
                 CHALLENGE_MST=db_challenge,

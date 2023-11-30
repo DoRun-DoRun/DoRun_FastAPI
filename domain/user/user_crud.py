@@ -10,8 +10,9 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from database import get_db
+from domain.desc.utils import random_user
 from domain.user.user_schema import CreateUser, UpdateUser, UserPydantic
-from models import User, SignType, UserSetting
+from models import User, SignType, UserSetting, Character, Pet
 
 from datetime import datetime, timedelta
 
@@ -23,28 +24,25 @@ ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/docs/login")
 
 
-# 추후 사용자 이름을 랜덤 문자열 조합으로 만들면 좋겠음
-# 형용사 + 명사 (ex 부드러운 + 치즈케잌)
 def create_user(user: CreateUser, db: Session):
-    query_conditions = []
-    if user.ID_TOKEN:
-        query_conditions.append(User.ID_TOKEN == user.ID_TOKEN)
-    if user.USER_EMAIL:
-        query_conditions.append(User.USER_EMAIL == user.USER_EMAIL)
+    if user.SIGN_TYPE != SignType.GUEST:
+        if not user.ID_TOKEN or user.USER_EMAIL:
+            raise HTTPException(status_code=400, detail="ID_TOKEN과 EMAIL을 입력해주세요.")
 
-    if query_conditions:
-        existing_user = db.query(User).filter(or_(*query_conditions)).first()
+        existing_user = db.query(User).filter(
+            or_(User.ID_TOKEN == user.ID_TOKEN, User.USER_EMAIL == user.USER_EMAIL)
+        ).first()
+
         if existing_user:
-            # 중복된 필드 확인 및 에러 메시지 결정
             if user.ID_TOKEN and existing_user.ID_TOKEN == user.ID_TOKEN:
                 raise HTTPException(status_code=400, detail="ID_TOKEN already in use")
             if user.USER_EMAIL and existing_user.USER_EMAIL == user.USER_EMAIL:
                 raise HTTPException(status_code=400, detail="USER_EMAIL already in use")
 
     if user.SIGN_TYPE == SignType.GUEST:
-        db_user = User(USER_NM="Guest", SIGN_TYPE=user.SIGN_TYPE)
+        db_user = User(USER_NM=random_user(), SIGN_TYPE=user.SIGN_TYPE)
     else:
-        db_user = User(USER_NM=user.USER_NM, SIGN_TYPE=user.SIGN_TYPE,
+        db_user = User(USER_NM=random_user(), SIGN_TYPE=user.SIGN_TYPE,
                        USER_EMAIL=user.USER_EMAIL, ID_TOKEN=user.ID_TOKEN)
     db.add(db_user)
     db.commit()
@@ -100,7 +98,55 @@ def update_user(user: UpdateUser, db: Session, current_user: User):
     db.commit()
 
 
-def get_user(db: Session, uid: int):
+# def get_user(db: Session, current_user: User):
+#     # Character와 CharacterUser 테이블 조인
+#     characters = db.query(
+#         Character.CHARACTER_NO,
+#         Character.CHARACTER_NM,
+#         CharacterUser.IS_EQUIP
+#     ).outerjoin(
+#         CharacterUser,
+#         (Character.CHARACTER_NO == CharacterUser.CHARACTER_NO) &
+#         (CharacterUser.USER_NO == current_user.USER_NO)
+#     ).all()
+#
+#     # 결과 포매팅
+#     character_list = []
+#     for character_no, character_nm, is_equip in characters:
+#         character_info = {
+#             "CHARACTER_NO": character_no,
+#             "CHARACTER_NM": character_nm,
+#             "OWNED": is_equip is not None,
+#             "EQUIPPED": bool(is_equip)
+#         }
+#         character_list.append(character_info)
+#
+#     # Pet과 PetUser 테이블 조인
+#     pets = db.query(
+#         Pet.PET_NO,
+#         Pet.PET_NM,
+#         Pet.IS_EQUIP
+#     ).outerjoin(
+#         PetUser,
+#         (Pet.CHARACTER_NO == PetUser.CHARACTER_NO) &
+#         (PetUser.USER_NO == current_user.USER_NO)
+#     ).all()
+#
+#     # 결과 포매팅
+#     pet_list = []
+#     for pet_no, pet_nm, is_equip in pets:
+#         pet_info = {
+#             "CHARACTER_NO": pet_no,
+#             "CHARACTER_NM": pet_nm,
+#             "OWNED": is_equip is not None,
+#             "EQUIPPED": bool(is_equip)
+#         }
+#         pet_list.append(pet_info)
+#
+#     return {"user": current_user, "character": character_list, "pet": pet_list}
+
+
+def get_user_by_uid(db: Session, uid: int):
     return db.query(User).filter(User.UID == uid).first()
 
 
@@ -131,7 +177,7 @@ def get_current_user(token: str = Depends(oauth2_scheme),
         print("ERROR")
         raise credentials_exception
     else:
-        user = get_user(db, uid=uid)
+        user = get_user_by_uid(db, uid=uid)
         if user is None:
             print("NONE USER")
             raise credentials_exception

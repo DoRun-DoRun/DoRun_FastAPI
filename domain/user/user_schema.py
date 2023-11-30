@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, EmailStr
 
@@ -14,7 +14,6 @@ class Token(BaseModel):
 
 class CreateUser(BaseModel):
     ID_TOKEN: Optional[str] = None
-    USER_NM: Optional[str] = None
     USER_EMAIL: Optional[EmailStr] = None
     SIGN_TYPE: SignType
 
@@ -31,4 +30,23 @@ class UserPydantic(BaseModel):
     USER_NM: str
     SIGN_TYPE: SignType
     USER_EMAIL: EmailStr
-    ID_TOKEN: str
+
+
+class PetPydantic(BaseModel):
+    UID: int
+    USER_NM: str
+    SIGN_TYPE: SignType
+    USER_EMAIL: EmailStr
+
+
+class CharacterPydantic(BaseModel):
+    UID: int
+    USER_NM: str
+    SIGN_TYPE: SignType
+    USER_EMAIL: EmailStr
+
+
+class UserMyPagePydantic(BaseModel):
+    user: UserPydantic
+    pet: List[PetPydantic]
+    character: List[CharacterPydantic]
