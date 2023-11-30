@@ -17,3 +17,18 @@ class CreateUser(BaseModel):
     USER_NM: Optional[str] = None
     USER_EMAIL: Optional[EmailStr] = None
     SIGN_TYPE: SignType
+
+
+class UpdateUser(BaseModel):
+    USER_NM: Optional[str] = None
+    SIGN_TYPE: Optional[SignType] = None
+    USER_EMAIL: Optional[EmailStr] = None
+    ID_TOKEN: Optional[str] = None
+
+
+class UserPydantic(BaseModel):
+    UID: int
+    USER_NM: str
+    SIGN_TYPE: SignType
+    USER_EMAIL: EmailStr
+    ID_TOKEN: str

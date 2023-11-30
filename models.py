@@ -60,13 +60,13 @@ class User(Base):
     SIGN_TYPE = Column(Enum(SignType, name="SignType"))
     USER_NM = Column(String)
     UID = Column(Integer, Sequence('user_uid_seq', start=1000000), unique=True, index=True)
-    USER_EMAIL = Column(String, unique=True)
+    USER_EMAIL = Column(String)
     ID_TOKEN = Column(String)
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    RECENT_LOGIN_DT = Column(DateTime)
+    RECENT_LOGIN_DT = Column(DateTime, default=datetime.utcnow)
     DISABLE_YN = Column(Boolean, default=False)
     DISABLE_DT = Column(DateTime)
 
@@ -77,11 +77,11 @@ class UserSetting(Base):
     __tablename__ = 'user_setting'
 
     USER_SETTING_NO = Column(Integer, primary_key=True)
-    AGREE_POLICY_YN = Column(Boolean)
+    AGREE_POLICY_YN = Column(Boolean, default=False)
     AGREE_POLICY_DT = Column(DateTime)
-    NOTICE_PUSH_YN = Column(Boolean)
+    NOTICE_PUSH_YN = Column(Boolean, default=False)
     NOTICE_PUSH_DT = Column(DateTime)
-    NOTICE_PUSH_NIGHT_YN = Column(Boolean)
+    NOTICE_PUSH_NIGHT_YN = Column(Boolean, default=False)
     NOTICE_PUSH_NIGHT_DT = Column(DateTime)
     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
 
@@ -106,6 +106,21 @@ class Character(Base):
     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
 
 
+# class Character(Base):
+#     __tablename__ = 'character'
+#
+#     CHARACTER_NO = Column(Integer, primary_key=True)
+#     CHARACTER_NM = Column(String)
+#
+#
+# class CharacterUser(Base):
+#     __tablename__ = 'character_user'
+#
+#     CHARACTER_USER_NO = Column(Integer, primary_key=True)
+#     IS_EQUIP = Column(Boolean)
+#     CHARACTER_NO = Column(Integer, ForeignKey('character.CHARACTER_NO'))
+#     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
+
 class Pet(Base):
     __tablename__ = 'pet'
 
@@ -113,6 +128,22 @@ class Pet(Base):
     PET_NM = Column(Enum(PetType), name='PetType')
     STATUS = Column(Enum(OwnerShipType, name='OwnerShipType'))
     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
+
+
+# class Pet(Base):
+#     __tablename__ = 'pet'
+#
+#     PET_NO = Column(Integer, primary_key=True)
+#     PET_NM = Column(String)
+#
+#
+# class PetUser(Base):
+#     __tablename__ = 'pet_user'
+#
+#     PET_USER_NO = Column(Integer, primary_key=True)
+#     IS_EQUIP = Column(Boolean)
+#     PET_NO = Column(Integer, ForeignKey('pet.PET_NO'))
+#     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
 
 
 class ChallengeMaster(Base):
@@ -245,3 +276,35 @@ class ItemLog(Base):
 
     sender = relationship('ChallengeUser', foreign_keys=[SENDER_UID])
     recipient = relationship('ChallengeUser', foreign_keys=[RECIPIENT_UID])
+
+# class Item(Base):
+#     __tablename__ = 'item'
+#
+#     ITEM_NO = Column(Integer, primary_key=True)
+#     ITEM_NM = Column(String, nullable=False)
+#
+#
+# class ItemUser(Base):
+#     __tablename__ = 'item_user'
+#
+#     ITEM_USER_NO = Column(Integer, primary_key=True)
+#     COUNT = Column(Integer)
+#
+#     ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
+#
+#     CHALLENGE_USER = relationship('ChallengeUser', backref='item_users')
+#     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+#
+#
+# class ItemLog(Base):
+#     __tablename__ = 'item_log'
+#
+#     ITEM_LOG_NO = Column(Integer, primary_key=True)
+#     INSERT_DT = Column(DateTime, default=datetime.utcnow)
+#
+#     ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
+#     SENDER_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+#     RECIPIENT_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+#
+#     sender = relationship('ChallengeUser', foreign_keys=[SENDER_UID])
+#     recipient = relationship('ChallengeUser', foreign_keys=[RECIPIENT_UID])
