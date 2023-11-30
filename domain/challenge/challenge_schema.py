@@ -3,12 +3,12 @@ from datetime import datetime, date
 from pydantic import BaseModel
 from typing import List, Optional
 
-from models import ChallengeStatus, AcceptType
+from models import ChallengeStatusType, InviteAcceptType
 
 
 class ChallengeParticipant(BaseModel):
     UID: int
-    ACCEPT_STATUS: Optional[AcceptType]
+    ACCEPT_STATUS: Optional[InviteAcceptType]
 
 
 class Challenge(BaseModel):
@@ -17,7 +17,7 @@ class Challenge(BaseModel):
     START_DT: datetime
     END_DT: datetime
     HEADER_EMOJI: str
-    CHALLENGE_STATUS: ChallengeStatus
+    CHALLENGE_STATUS: ChallengeStatusType
     PROGRESS: Optional[float] = None
     PARTICIPANTS: Optional[List[ChallengeParticipant]] = None
 
@@ -70,7 +70,7 @@ class ChallengeCreate(BaseModel):
     END_DT: date
     HEADER_EMOJI: str
     INSERT_DT: datetime
-    CHALLENGE_STATUS: ChallengeStatus
+    CHALLENGE_STATUS: ChallengeStatusType
 
     # @validator('*', pre=True)
     # def not_empty(cls, value: Any, field) -> Any:

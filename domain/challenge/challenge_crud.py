@@ -13,9 +13,7 @@ from models import ChallengeMaster, User, TeamWeeklyGoal, ChallengeUser, PersonD
 
 
 def get_challenge_list(db: Session, current_user: User):
-    challenges = db.query(ChallengeMaster). \
-        join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO). \
-        filter(ChallengeUser.USER_NO == current_user.USER_NO).all()
+    challenges = get_challenge_masters_by_user(db, current_user)
 
     if not challenges:
         return []
@@ -33,6 +31,17 @@ def get_challenge_list(db: Session, current_user: User):
         challenge_list.append(challenge_info)
 
     return challenge_list
+
+
+def get_challenge_masters_by_user(db: Session, current_user: User) -> ChallengeMaster:
+    challenges = db.query(ChallengeMaster). \
+        join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO). \
+        filter(ChallengeUser.USER_NO == current_user.USER_NO).all()
+
+    if not challenges:
+        raise HTTPException(status_code=404, detail="ChallengeMasters not found")
+
+    return challenges
 
 
 def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int) -> Dict[str, Any]:

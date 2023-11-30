@@ -1,4 +1,4 @@
-from operator import and_
+from collections import Counter
 
 from fastapi import Depends, HTTPException
 from jose import jwt, JWTError
@@ -10,9 +10,10 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from database import get_db
+from domain.challenge import challenge_crud
 from domain.desc.utils import random_user
-from domain.user.user_schema import CreateUser, UpdateUser, UserPydantic
-from models import User, SignType, UserSetting, Character, Pet
+from domain.user.user_schema import CreateUser, UpdateUser, GetUser
+from models import User, SignType, UserSetting, AvatarUser, ChallengeStatusType
 
 from datetime import datetime, timedelta
 
@@ -26,8 +27,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/docs/login")
 
 def create_user(user: CreateUser, db: Session):
     if user.SIGN_TYPE != SignType.GUEST:
-        if not user.ID_TOKEN or user.USER_EMAIL:
-            raise HTTPException(status_code=400, detail="ID_TOKEN과 EMAIL을 입력해주세요.")
+        if not user.ID_TOKEN or not user.USER_EMAIL:
+            raise HTTPException(status_code=400, detail="ID_TOKEN과 USER_EMAIL을 입력해주세요.")
 
         existing_user = db.query(User).filter(
             or_(User.ID_TOKEN == user.ID_TOKEN, User.USER_EMAIL == user.USER_EMAIL)
@@ -52,12 +53,12 @@ def create_user(user: CreateUser, db: Session):
     )
     db.add(db_user_setting)
 
-    # db_character_user = CharacterUser(
-    #     IS_EQUIP=True,
-    #     USER_NO=db_user.USER_NO,
-    #     CHARACTER_NO=1,
-    # )
-    # db.add(db_character_user)
+    db_avatar_user = AvatarUser(
+        IS_EQUIP=True,
+        USER_NO=db_user.USER_NO,
+        AVATAR_NO=1,
+    )
+    db.add(db_avatar_user)
 
     db.commit()
 
@@ -98,52 +99,23 @@ def update_user(user: UpdateUser, db: Session, current_user: User):
     db.commit()
 
 
-# def get_user(db: Session, current_user: User):
-#     # Character와 CharacterUser 테이블 조인
-#     characters = db.query(
-#         Character.CHARACTER_NO,
-#         Character.CHARACTER_NM,
-#         CharacterUser.IS_EQUIP
-#     ).outerjoin(
-#         CharacterUser,
-#         (Character.CHARACTER_NO == CharacterUser.CHARACTER_NO) &
-#         (CharacterUser.USER_NO == current_user.USER_NO)
-#     ).all()
-#
-#     # 결과 포매팅
-#     character_list = []
-#     for character_no, character_nm, is_equip in characters:
-#         character_info = {
-#             "CHARACTER_NO": character_no,
-#             "CHARACTER_NM": character_nm,
-#             "OWNED": is_equip is not None,
-#             "EQUIPPED": bool(is_equip)
-#         }
-#         character_list.append(character_info)
-#
-#     # Pet과 PetUser 테이블 조인
-#     pets = db.query(
-#         Pet.PET_NO,
-#         Pet.PET_NM,
-#         Pet.IS_EQUIP
-#     ).outerjoin(
-#         PetUser,
-#         (Pet.CHARACTER_NO == PetUser.CHARACTER_NO) &
-#         (PetUser.USER_NO == current_user.USER_NO)
-#     ).all()
-#
-#     # 결과 포매팅
-#     pet_list = []
-#     for pet_no, pet_nm, is_equip in pets:
-#         pet_info = {
-#             "CHARACTER_NO": pet_no,
-#             "CHARACTER_NM": pet_nm,
-#             "OWNED": is_equip is not None,
-#             "EQUIPPED": bool(is_equip)
-#         }
-#         pet_list.append(pet_info)
-#
-#     return {"user": current_user, "character": character_list, "pet": pet_list}
+def get_user(db: Session, current_user: User):
+    equipped_avatar_user = db.query(AvatarUser) \
+        .filter(AvatarUser.USER_NO == current_user.USER_NO) \
+        .filter(AvatarUser.IS_EQUIP == True) \
+        .first()
+    if not equipped_avatar_user:
+        raise HTTPException(status_code=400, detail="착용된 아바타를 찾을 수 없습니다.")
+
+    challenges = challenge_crud.get_challenge_masters_by_user(db, current_user)
+    status_counts = Counter(challenge.CHALLENGE_STATUS for challenge in challenges)
+    if not status_counts:
+        raise HTTPException(status_code=400, detail="챌린지 개수를 세는데 실패했습니다.")
+
+    return GetUser(USER_NM=current_user.USER_NM, USER_CHARACTER_NO=equipped_avatar_user.AVATAR_USER_NO,
+                   COMPLETE=status_counts[ChallengeStatusType.COMPLETE],
+                   PROGRESS=status_counts[ChallengeStatusType.PROGRESS],
+                   PENDING=status_counts[ChallengeStatusType.PENDING])
 
 
 def get_user_by_uid(db: Session, uid: int):

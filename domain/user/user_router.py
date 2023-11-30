@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import encode_token, get_current_user
-from domain.user.user_schema import CreateUser, UpdateUser, UserPydantic, UserMyPagePydantic
+from domain.user.user_schema import CreateUser, UpdateUser, GetUser
 from models import User
 
 router = APIRouter(
@@ -47,11 +47,11 @@ def create_user(user: CreateUser, db: Session = Depends(get_db)):
     }
 
 
-# @router.get("", response_model=UserMyPagePydantic)
-# def get_user(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-#     user_data = user_crud.get_user(db, current_user)
-#
-#     return user_data
+@router.get("", response_model=GetUser)
+def get_user(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user_data = user_crud.get_user(db, current_user)
+
+    return user_data
 
 
 @router.get("/login")
@@ -72,12 +72,12 @@ def login_for_access_token(db: Session = Depends(get_db), current_user: User = D
     }
 
 
-@router.put("", response_model=UserPydantic)
+@router.put("", response_model=GetUser)
 def update_user(user: UpdateUser, db: Session = Depends(get_db),
                 current_user: User = Depends(get_current_user)):
     user_crud.update_user(user, db, current_user)
 
-    return UserPydantic(
+    return GetUser(
         UID=current_user.UID,
         USER_NM=current_user.USER_NM,
         SIGN_TYPE=current_user.SIGN_TYPE,

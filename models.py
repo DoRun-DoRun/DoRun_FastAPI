@@ -15,15 +15,14 @@ class SignType(enum.Enum):
     GUEST = 'GUEST'
 
 
-class ChallengeStatus(enum.Enum):
+class ChallengeStatusType(enum.Enum):
     PENDING = 'PENDING'
-    ACTIVE = 'ACTIVE'
+    PROGRESS = 'PROGRESS'
     COMPLETE = 'COMPLETE'
     FAILED = 'FAILED'
 
 
-# Accept 상태를 위한 Enum 타입 정의
-class AcceptType(enum.Enum):
+class InviteAcceptType(enum.Enum):
     PENDING = 'PENDING'
     ACCEPTED = 'ACCEPTED'
     DECLINED = 'DECLINED'
@@ -79,7 +78,7 @@ class Friend(Base):
     FRIEND_NO = Column(Integer, primary_key=True)
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     ACCEPT_DT = Column(DateTime)
-    ACCEPT_STATUS = Column(Enum(AcceptType), name='AcceptType')
+    ACCEPT_STATUS = Column(Enum(InviteAcceptType), name='InviteAcceptType')
     SENDER_UID = Column(Integer, ForeignKey('user.USER_NO'))
     RECIPIENT_UID = Column(Integer, ForeignKey('user.USER_NO'))
 
@@ -109,7 +108,7 @@ class ChallengeMaster(Base):
     START_DT = Column(Date)
     END_DT = Column(Date)
     HEADER_EMOJI = Column(String)
-    CHALLENGE_STATUS = Column(Enum(ChallengeStatus, name='ChallengeStatus'))
+    CHALLENGE_STATUS = Column(Enum(ChallengeStatusType, name='ChallengeStatusType'))
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -124,7 +123,7 @@ class ChallengeUser(Base):
     __tablename__ = 'challenge_users'
 
     CHALLENGE_USER_NO = Column(Integer, primary_key=True)
-    ACCEPT_STATUS = Column(Enum(AcceptType, name="AcceptType"))
+    ACCEPT_STATUS = Column(Enum(InviteAcceptType, name="InviteAcceptType"))
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

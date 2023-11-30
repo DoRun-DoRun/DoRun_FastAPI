@@ -25,28 +25,10 @@ class UpdateUser(BaseModel):
     ID_TOKEN: Optional[str] = None
 
 
-class UserPydantic(BaseModel):
-    UID: int
+class GetUser(BaseModel):
     USER_NM: str
-    SIGN_TYPE: SignType
-    USER_EMAIL: EmailStr
+    USER_CHARACTER_NO: int
+    COMPLETE: int
+    PROGRESS: int
+    PENDING: int
 
-
-class PetPydantic(BaseModel):
-    UID: int
-    USER_NM: str
-    SIGN_TYPE: SignType
-    USER_EMAIL: EmailStr
-
-
-class CharacterPydantic(BaseModel):
-    UID: int
-    USER_NM: str
-    SIGN_TYPE: SignType
-    USER_EMAIL: EmailStr
-
-
-class UserMyPagePydantic(BaseModel):
-    user: UserPydantic
-    pet: List[PetPydantic]
-    character: List[CharacterPydantic]
