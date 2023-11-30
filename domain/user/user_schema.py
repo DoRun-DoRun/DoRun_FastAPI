@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 
 from pydantic import BaseModel, EmailStr
 
@@ -17,6 +17,15 @@ class CreateUser(BaseModel):
     USER_EMAIL: Optional[EmailStr] = None
     SIGN_TYPE: SignType
 
+    @property
+    def is_valid(self):
+        if self.SIGN_TYPE != SignType.GUEST:
+            if not self.ID_TOKEN:
+                return False, "ID_TOKEN을 입력해주세요."
+            if not self.USER_EMAIL:
+                return False, "USER_EMAIL 입력해주세요."
+        return True, ""
+
 
 class UpdateUser(BaseModel):
     USER_NM: Optional[str] = None
@@ -25,10 +34,17 @@ class UpdateUser(BaseModel):
     ID_TOKEN: Optional[str] = None
 
 
+class UpdateUserResponse(BaseModel):
+    UID: int
+    USER_NM: str
+    SIGN_TYPE: SignType
+    USER_EMAIL: EmailStr
+    ID_TOKEN: str
+
+
 class GetUser(BaseModel):
     USER_NM: str
     USER_CHARACTER_NO: int
     COMPLETE: int
     PROGRESS: int
     PENDING: int
-

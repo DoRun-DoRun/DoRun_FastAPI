@@ -25,20 +25,27 @@ ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/docs/login")
 
 
+def check_user_email_id_token_duplicate(db: Session, user_email: str, id_token: str, current_user_id: int = None):
+    query_conditions = []
+    if user_email:
+        query_conditions.append(User.USER_EMAIL == user_email)
+    if id_token:
+        query_conditions.append(User.ID_TOKEN == id_token)
+
+    if current_user_id:
+        query_conditions.append(User.USER_NO != current_user_id)
+
+    existing_user = db.query(User).filter(or_(*query_conditions)).first()
+    if existing_user:
+        if user_email and existing_user.USER_EMAIL == user_email:
+            raise HTTPException(status_code=400, detail="입력된 USER_EMAIL가 이미 존재합니다.")
+        if id_token and existing_user.ID_TOKEN == id_token:
+            raise HTTPException(status_code=400, detail="입력된 ID_TOKEN가 이미 존재합니다.")
+
+
 def create_user(user: CreateUser, db: Session):
     if user.SIGN_TYPE != SignType.GUEST:
-        if not user.ID_TOKEN or not user.USER_EMAIL:
-            raise HTTPException(status_code=400, detail="ID_TOKEN과 USER_EMAIL을 입력해주세요.")
-
-        existing_user = db.query(User).filter(
-            or_(User.ID_TOKEN == user.ID_TOKEN, User.USER_EMAIL == user.USER_EMAIL)
-        ).first()
-
-        if existing_user:
-            if user.ID_TOKEN and existing_user.ID_TOKEN == user.ID_TOKEN:
-                raise HTTPException(status_code=400, detail="ID_TOKEN already in use")
-            if user.USER_EMAIL and existing_user.USER_EMAIL == user.USER_EMAIL:
-                raise HTTPException(status_code=400, detail="USER_EMAIL already in use")
+        check_user_email_id_token_duplicate(db, user.USER_EMAIL, user.ID_TOKEN)
 
     if user.SIGN_TYPE == SignType.GUEST:
         db_user = User(USER_NM=random_user(), SIGN_TYPE=user.SIGN_TYPE)
@@ -51,42 +58,21 @@ def create_user(user: CreateUser, db: Session):
     db_user_setting = UserSetting(
         USER_NO=db_user.USER_NO,
     )
-    db.add(db_user_setting)
-
     db_avatar_user = AvatarUser(
         IS_EQUIP=True,
         USER_NO=db_user.USER_NO,
         AVATAR_NO=1,
     )
-    db.add(db_avatar_user)
-
+    db.add(db_user_setting, db_avatar_user)
     db.commit()
 
     return db_user.UID
 
 
 def update_user(user: UpdateUser, db: Session, current_user: User):
-    # 중복 체크 쿼리 조건 생성
-    query_conditions = []
-    if user.USER_EMAIL is not None:
-        query_conditions.append(User.USER_EMAIL == user.USER_EMAIL)
-    if user.ID_TOKEN is not None:
-        query_conditions.append(User.ID_TOKEN == user.ID_TOKEN)
 
-    # 중복 체크 및 에러 처리
-    if query_conditions:
-        existing_user = db.query(User).filter(
-            or_(*query_conditions),
-            User.USER_NO != current_user.USER_NO  # 현재 사용자 제외
-        ).first()
+    check_user_email_id_token_duplicate(db, user.USER_EMAIL, user.ID_TOKEN, current_user.USER_NO)
 
-        if existing_user:
-            if user.USER_EMAIL and existing_user.USER_EMAIL == user.USER_EMAIL:
-                raise HTTPException(status_code=400, detail="USER_EMAIL already in use")
-            if user.ID_TOKEN and existing_user.ID_TOKEN == user.ID_TOKEN:
-                raise HTTPException(status_code=400, detail="ID_TOKEN already in use")
-
-    # UpdateUser 모델에서 제공된 값으로 필드 업데이트
     if user.USER_NM is not None:
         current_user.USER_NM = user.USER_NM
     if user.SIGN_TYPE is not None:
@@ -110,7 +96,7 @@ def get_user(db: Session, current_user: User):
     challenges = challenge_crud.get_challenge_masters_by_user(db, current_user)
     status_counts = Counter(challenge.CHALLENGE_STATUS for challenge in challenges)
     if not status_counts:
-        raise HTTPException(status_code=400, detail="챌린지 개수를 세는데 실패했습니다.")
+        raise HTTPException(status_code=400, detail="챌린지 개수를 셀 수 없습니다.")
 
     return GetUser(USER_NM=current_user.USER_NM, USER_CHARACTER_NO=equipped_avatar_user.AVATAR_USER_NO,
                    COMPLETE=status_counts[ChallengeStatusType.COMPLETE],
@@ -134,25 +120,18 @@ def encode_token(sub: str, is_exp: bool):
 
 def get_current_user(token: str = Depends(oauth2_scheme),
                      db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         uid = int(payload.get("sub"))
         if uid is None:
-            print("NONE")
-            raise credentials_exception
+            raise HTTPException(status_code=401, detail="UID 정보를 찾을 수 없습니다.")
     except JWTError:
-        print("ERROR")
-        raise credentials_exception
+        raise HTTPException(status_code=404, detail="JWT 에러")
     else:
         user = get_user_by_uid(db, uid=uid)
         if user is None:
-            print("NONE USER")
-            raise credentials_exception
+            raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
         if user.DISABLE_YN is True:
-            raise HTTPException(status_code=404, detail="탈퇴한 유저입니다.", )
+            raise HTTPException(status_code=400, detail="탈퇴한 사용자입니다.")
         return user

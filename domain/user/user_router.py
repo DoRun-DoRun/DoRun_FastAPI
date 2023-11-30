@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import encode_token, get_current_user
-from domain.user.user_schema import CreateUser, UpdateUser, GetUser
+from domain.user.user_schema import CreateUser, UpdateUser, GetUser, UpdateUserResponse
 from models import User
 
 router = APIRouter(
@@ -31,10 +31,12 @@ def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Sessio
 
 @router.post("", response_model=user_schema.Token)
 def create_user(user: CreateUser, db: Session = Depends(get_db)):
-    new_uid = user_crud.create_user(user, db)
+    is_valid, message = user.is_valid
 
-    if not new_uid:
-        raise HTTPException(status_code=404, detail="유저 생성 실패")
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
+
+    new_uid = user_crud.create_user(user, db)
 
     access_token = encode_token(str(new_uid), is_exp=True)
     refresh_token = encode_token(str(new_uid), is_exp=False)
@@ -49,9 +51,7 @@ def create_user(user: CreateUser, db: Session = Depends(get_db)):
 
 @router.get("", response_model=GetUser)
 def get_user(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    user_data = user_crud.get_user(db, current_user)
-
-    return user_data
+    return user_crud.get_user(db, current_user)
 
 
 @router.get("/login")
@@ -72,12 +72,12 @@ def login_for_access_token(db: Session = Depends(get_db), current_user: User = D
     }
 
 
-@router.put("", response_model=GetUser)
+@router.put("", response_model=UpdateUserResponse)
 def update_user(user: UpdateUser, db: Session = Depends(get_db),
                 current_user: User = Depends(get_current_user)):
     user_crud.update_user(user, db, current_user)
 
-    return GetUser(
+    return UpdateUserResponse(
         UID=current_user.UID,
         USER_NM=current_user.USER_NM,
         SIGN_TYPE=current_user.SIGN_TYPE,

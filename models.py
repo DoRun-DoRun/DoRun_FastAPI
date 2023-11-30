@@ -1,8 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Enum, MetaData, ForeignKey, ARRAY, \
-    JSON, Date, Table, Double, Sequence, Index
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum, ForeignKey, Date, Sequence
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -206,6 +205,7 @@ class DailyCompleteUser(Base):
 
     CHALLENGE_USER = relationship('ChallengeUser', backref="daily_complete_user")
     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+
 
 class Item(Base):
     __tablename__ = 'item'
