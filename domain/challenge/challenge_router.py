@@ -30,17 +30,14 @@ def challenge_detail(challenge_mst_no: int, db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
     _challenge = get_challenge_detail(db, user_no=_current_user.USER_NO, challenge_mst_no=challenge_mst_no)
 
-    if not _challenge:
-        raise HTTPException(status_code=404, detail="Challenge not found")
-
     return _challenge
 
 
-@router.post("", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("")
 def challenge_create(_challenge_create: challenge_schema.ChallengeCreate,
                      db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
     challenge_crud.create_challenge(db, challenge_create=_challenge_create,
                                     current_user=_current_user)
 
-    return {"message": "challenge_create success"}
+    return {"message": "챌린지 생성 성공"}

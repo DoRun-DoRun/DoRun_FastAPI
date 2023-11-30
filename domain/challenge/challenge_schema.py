@@ -18,11 +18,14 @@ class Challenge(BaseModel):
     END_DT: datetime
     HEADER_EMOJI: str
     CHALLENGE_STATUS: ChallengeStatusType
-    PROGRESS: Optional[float] = None
-    PARTICIPANTS: Optional[List[ChallengeParticipant]] = None
 
     class Config:
         from_attributes = True
+
+
+class ChallengeInfo(BaseModel):
+    PROGRESS: Optional[float] = None
+    PARTICIPANTS: Optional[List[ChallengeParticipant]] = None
 
 
 class PersonDailyGoalPydantic(BaseModel):

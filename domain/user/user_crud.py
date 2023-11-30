@@ -58,19 +58,19 @@ def create_user(user: CreateUser, db: Session):
     db_user_setting = UserSetting(
         USER_NO=db_user.USER_NO,
     )
+    db.add(db_user_setting)
     db_avatar_user = AvatarUser(
         IS_EQUIP=True,
         USER_NO=db_user.USER_NO,
         AVATAR_NO=1,
     )
-    db.add(db_user_setting, db_avatar_user)
+    db.add(db_avatar_user)
     db.commit()
 
     return db_user.UID
 
 
 def update_user(user: UpdateUser, db: Session, current_user: User):
-
     check_user_email_id_token_duplicate(db, user.USER_EMAIL, user.ID_TOKEN, current_user.USER_NO)
 
     if user.USER_NM is not None:
@@ -105,7 +105,11 @@ def get_user(db: Session, current_user: User):
 
 
 def get_user_by_uid(db: Session, uid: int):
-    return db.query(User).filter(User.UID == uid).first()
+    user = db.query(User).filter(User.UID == uid).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
+
+    return user
 
 
 def encode_token(sub: str, is_exp: bool):
@@ -120,7 +124,6 @@ def encode_token(sub: str, is_exp: bool):
 
 def get_current_user(token: str = Depends(oauth2_scheme),
                      db: Session = Depends(get_db)):
-
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         uid = int(payload.get("sub"))
@@ -130,8 +133,6 @@ def get_current_user(token: str = Depends(oauth2_scheme),
         raise HTTPException(status_code=404, detail="JWT 에러")
     else:
         user = get_user_by_uid(db, uid=uid)
-        if user is None:
-            raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
         if user.DISABLE_YN is True:
             raise HTTPException(status_code=400, detail="탈퇴한 사용자입니다.")
         return user

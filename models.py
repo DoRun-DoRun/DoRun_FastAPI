@@ -218,7 +218,7 @@ class ItemUser(Base):
     __tablename__ = 'item_user'
 
     ITEM_USER_NO = Column(Integer, primary_key=True)
-    COUNT = Column(Integer)
+    COUNT = Column(Integer, default=0)
 
     ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
 
