@@ -35,22 +35,9 @@ class ItemType(enum.Enum):
     HAMMER = "HAMMER"
 
 
-class CharacterType(enum.Enum):
-    CHARACTER_TYPE1 = 'CHARACTER_TYPE1'
-    CHARACTER_TYPE2 = 'CHARACTER_TYPE2'
-    CHARACTER_TYPE3 = 'CHARACTER_TYPE3'
-    CHARACTER_TYPE4 = 'CHARACTER_TYPE4'
-
-
-class PetType(enum.Enum):
-    PET_TYPE1 = 'PET_TYPE1'
-    PET_TYPE2 = 'PET_TYPE2'
-
-
-class OwnerShipType(enum.Enum):
-    OWNER: 'OWNER'
-    EQUIP: 'EQUIP'
-    LACK: 'LACK'
+class AvatarType(enum.Enum):
+    CHARACTER = "CHARACTER"
+    PET = "PET"
 
 
 class User(Base):
@@ -97,53 +84,21 @@ class Friend(Base):
     RECIPIENT_UID = Column(Integer, ForeignKey('user.USER_NO'))
 
 
-class Character(Base):
-    __tablename__ = 'character'
+class Avatar(Base):
+    __tablename__ = 'avatar'
 
-    CHARACTER_NO = Column(Integer, primary_key=True)
-    CHARACTER_NM = Column(String)
-    STATUS = Column(Enum(OwnerShipType, name='OwnerShipType'))
+    AVATAR_NO = Column(Integer, primary_key=True)
+    AVATAR_NM = Column(String, nullable=False)
+    AVATAR_TYPE = Column(Enum(AvatarType), name='AvatarType')
+
+
+class AvatarUser(Base):
+    __tablename__ = 'avatar_user'
+
+    AVATAR_USER_NO = Column(Integer, primary_key=True)
+    IS_EQUIP = Column(Boolean)
+    AVATAR_NO = Column(Integer, ForeignKey('avatar.AVATAR_NO'))
     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
-
-
-# class Character(Base):
-#     __tablename__ = 'character'
-#
-#     CHARACTER_NO = Column(Integer, primary_key=True)
-#     CHARACTER_NM = Column(String)
-#
-#
-# class CharacterUser(Base):
-#     __tablename__ = 'character_user'
-#
-#     CHARACTER_USER_NO = Column(Integer, primary_key=True)
-#     IS_EQUIP = Column(Boolean)
-#     CHARACTER_NO = Column(Integer, ForeignKey('character.CHARACTER_NO'))
-#     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
-
-class Pet(Base):
-    __tablename__ = 'pet'
-
-    PET_NO = Column(Integer, primary_key=True)
-    PET_NM = Column(Enum(PetType), name='PetType')
-    STATUS = Column(Enum(OwnerShipType, name='OwnerShipType'))
-    USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
-
-
-# class Pet(Base):
-#     __tablename__ = 'pet'
-#
-#     PET_NO = Column(Integer, primary_key=True)
-#     PET_NM = Column(String)
-#
-#
-# class PetUser(Base):
-#     __tablename__ = 'pet_user'
-#
-#     PET_USER_NO = Column(Integer, primary_key=True)
-#     IS_EQUIP = Column(Boolean)
-#     PET_NO = Column(Integer, ForeignKey('pet.PET_NO'))
-#     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
 
 
 class ChallengeMaster(Base):
@@ -253,13 +208,20 @@ class DailyCompleteUser(Base):
     CHALLENGE_USER = relationship('ChallengeUser', backref="daily_complete_user")
     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
 
+class Item(Base):
+    __tablename__ = 'item'
+
+    ITEM_NO = Column(Integer, primary_key=True)
+    ITEM_NM = Column(String, nullable=False)
+
 
 class ItemUser(Base):
     __tablename__ = 'item_user'
 
-    ITEM_NO = Column(Integer, primary_key=True)
-    ITEM_NM = Column(Enum(ItemType, name='ItemType'))
+    ITEM_USER_NO = Column(Integer, primary_key=True)
     COUNT = Column(Integer)
+
+    ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
 
     CHALLENGE_USER = relationship('ChallengeUser', backref='item_users')
     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
@@ -269,42 +231,11 @@ class ItemLog(Base):
     __tablename__ = 'item_log'
 
     ITEM_LOG_NO = Column(Integer, primary_key=True)
-    ITEM_NM = Column(Enum(ItemType, name='ItemType'))
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
+
+    ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
     SENDER_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
     RECIPIENT_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
 
     sender = relationship('ChallengeUser', foreign_keys=[SENDER_UID])
     recipient = relationship('ChallengeUser', foreign_keys=[RECIPIENT_UID])
-
-# class Item(Base):
-#     __tablename__ = 'item'
-#
-#     ITEM_NO = Column(Integer, primary_key=True)
-#     ITEM_NM = Column(String, nullable=False)
-#
-#
-# class ItemUser(Base):
-#     __tablename__ = 'item_user'
-#
-#     ITEM_USER_NO = Column(Integer, primary_key=True)
-#     COUNT = Column(Integer)
-#
-#     ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
-#
-#     CHALLENGE_USER = relationship('ChallengeUser', backref='item_users')
-#     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
-#
-#
-# class ItemLog(Base):
-#     __tablename__ = 'item_log'
-#
-#     ITEM_LOG_NO = Column(Integer, primary_key=True)
-#     INSERT_DT = Column(DateTime, default=datetime.utcnow)
-#
-#     ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
-#     SENDER_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
-#     RECIPIENT_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
-#
-#     sender = relationship('ChallengeUser', foreign_keys=[SENDER_UID])
-#     recipient = relationship('ChallengeUser', foreign_keys=[RECIPIENT_UID])
