@@ -22,7 +22,7 @@ class ChallengeUserList(BaseModel):
         from_attributes = True
 
 
-class Challenge(BaseModel):
+class ChallengeMST(BaseModel):
     CHALLENGE_MST_NO: int
     CHALLENGE_MST_NM: str
     START_DT: datetime
@@ -34,17 +34,12 @@ class Challenge(BaseModel):
         from_attributes = True
 
 
-class ChallengeList(Challenge):
+class ChallengeList(ChallengeMST):
     PROGRESS: Optional[float] = None
 
 
-class ChallengeInvite(Challenge):
+class ChallengeInvite(ChallengeMST):
     PARTICIPANTS: List[ChallengeParticipant]
-
-
-class ChallengeListPydantic(BaseModel):
-    CHALLENGE_MST_NO: int
-    CURRENT_DAY: datetime
 
 
 class PersonDailyGoalPydantic(BaseModel):
@@ -100,3 +95,18 @@ class ChallengeCreate(BaseModel):
     #     if isinstance(value, str) and not value.strip():
     #         raise ValueError(f'{field.name} 필드에 빈 값은 허용 되지 않습니다.')
     #     return value
+
+
+class PutChallengeInvite(BaseModel):
+    CHALLENGE_MST_NO: int
+    ACCEPT_STATUS: InviteAcceptType
+
+
+class GetChallengeUserDetail(BaseModel):
+    CHALLENGE_USER_NO: int
+    USER_NM: str
+    CHARACTER_NO: str
+    PROGRESS: float
+    COMMENT: str
+    personGoal: List[PersonDailyGoalPydantic]
+

@@ -3,7 +3,6 @@ from collections import Counter
 from fastapi import Depends, HTTPException
 from jose import jwt, JWTError
 from sqlalchemy import or_
-from starlette import status
 from starlette.config import Config
 
 from fastapi.security import OAuth2PasswordBearer
@@ -25,6 +24,8 @@ ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/docs/login")
 
 
+# 기능 함수
+# EMAIL과 ID_TOKEN의 중복 확인
 def check_user_email_id_token_duplicate(db: Session, user_email: str, id_token: str, current_user_id: int = None):
     query_conditions = []
     if user_email:
@@ -43,6 +44,44 @@ def check_user_email_id_token_duplicate(db: Session, user_email: str, id_token: 
             raise HTTPException(status_code=400, detail="입력된 ID_TOKEN가 이미 존재합니다.")
 
 
+# UID를 통해서 유저 반환
+def get_user_by_uid(db: Session, uid: int):
+    user = db.query(User).filter(User.UID == uid).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="UID로 부터 사용자를 찾을 수 없습니다.")
+
+    return user
+
+
+# JWT 토큰 발급
+def encode_token(sub: str, is_exp: bool):
+    data = {
+        "sub": sub,
+    }
+    if is_exp:
+        data["exp"] = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+
+
+# 현재 AccessToken의 유저 반환
+def get_current_user(token: str = Depends(oauth2_scheme),
+                     db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        uid = int(payload.get("sub"))
+        if uid is None:
+            raise HTTPException(status_code=401, detail="토큰값으로부터 UID 정보를 찾을 수 없습니다.")
+    except JWTError:
+        raise HTTPException(status_code=404, detail="JWT 에러")
+    else:
+        user = get_user_by_uid(db, uid=uid)
+        if user.DISABLE_YN is True:
+            raise HTTPException(status_code=400, detail="탈퇴한 사용자입니다.")
+        return user
+
+
+# 라우터 함수
 def create_user(user: CreateUser, db: Session):
     if user.SIGN_TYPE != SignType.GUEST:
         check_user_email_id_token_duplicate(db, user.USER_EMAIL, user.ID_TOKEN)
@@ -102,37 +141,3 @@ def get_user(db: Session, current_user: User):
                    COMPLETE=status_counts[ChallengeStatusType.COMPLETE],
                    PROGRESS=status_counts[ChallengeStatusType.PROGRESS],
                    PENDING=status_counts[ChallengeStatusType.PENDING])
-
-
-def get_user_by_uid(db: Session, uid: int):
-    user = db.query(User).filter(User.UID == uid).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="UID로 부터 사용자를 찾을 수 없습니다.")
-
-    return user
-
-
-def encode_token(sub: str, is_exp: bool):
-    data = {
-        "sub": sub,
-    }
-    if is_exp:
-        data["exp"] = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
-    return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
-
-
-def get_current_user(token: str = Depends(oauth2_scheme),
-                     db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        uid = int(payload.get("sub"))
-        if uid is None:
-            raise HTTPException(status_code=401, detail="토큰값으로부터 UID 정보를 찾을 수 없습니다.")
-    except JWTError:
-        raise HTTPException(status_code=404, detail="JWT 에러")
-    else:
-        user = get_user_by_uid(db, uid=uid)
-        if user.DISABLE_YN is True:
-            raise HTTPException(status_code=400, detail="탈퇴한 사용자입니다.")
-        return user
