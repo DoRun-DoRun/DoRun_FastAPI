@@ -8,7 +8,18 @@ from models import ChallengeStatusType, InviteAcceptType
 
 class ChallengeParticipant(BaseModel):
     UID: int
-    ACCEPT_STATUS: Optional[InviteAcceptType]
+    USER_NM: str
+    ACCEPT_STATUS: InviteAcceptType
+
+
+class ChallengeUserList(BaseModel):
+    CHALLENGE_USER_NO: int
+    PROGRESS: float
+    CHARACTER_NO: int
+    PET_NO: Optional[int]
+
+    class Config:
+        from_attributes = True
 
 
 class Challenge(BaseModel):
@@ -23,9 +34,17 @@ class Challenge(BaseModel):
         from_attributes = True
 
 
-class ChallengeInfo(BaseModel):
+class ChallengeList(Challenge):
     PROGRESS: Optional[float] = None
-    PARTICIPANTS: Optional[List[ChallengeParticipant]] = None
+
+
+class ChallengeInvite(Challenge):
+    PARTICIPANTS: List[ChallengeParticipant]
+
+
+class ChallengeListPydantic(BaseModel):
+    CHALLENGE_MST_NO: int
+    CURRENT_DAY: datetime
 
 
 class PersonDailyGoalPydantic(BaseModel):
@@ -41,6 +60,7 @@ class TeamWeeklyGoalPydantic(BaseModel):
     TEAM_NO: int
     TEAM_NM: str
     IS_DONE: bool
+    CHALLENGE_USER_NO: int
 
     class Config:
         from_attributes = True
@@ -53,6 +73,7 @@ class AdditionalGoalPydantic(BaseModel):
     IMAGE_FILE_NM: Optional[str]
     START_DT: datetime
     END_DT: datetime
+    CHALLENGE_USER_NO: int
 
     class Config:
         from_attributes = True
@@ -60,7 +81,6 @@ class AdditionalGoalPydantic(BaseModel):
 
 class ChallengeDetail(BaseModel):
     CHALLENGE_USER_NO: int
-    challenge: Challenge
     personGoal: List[PersonDailyGoalPydantic]
     teamGoal: List[TeamWeeklyGoalPydantic]
     additionalGoal: List[AdditionalGoalPydantic]

@@ -87,7 +87,7 @@ class Avatar(Base):
 
     AVATAR_NO = Column(Integer, primary_key=True)
     AVATAR_NM = Column(String, nullable=False)
-    AVATAR_TYPE = Column(Enum(AvatarType), name='AvatarType')
+    AVATAR_TYPE = Column(Enum(AvatarType, name='AvatarType'))
 
 
 class AvatarUser(Base):
@@ -211,7 +211,7 @@ class Item(Base):
     __tablename__ = 'item'
 
     ITEM_NO = Column(Integer, primary_key=True)
-    ITEM_NM = Column(String, nullable=False)
+    ITEM_NM = Column(Enum(ItemType, name="ItemType"), nullable=False)
 
 
 class ItemUser(Base):
@@ -232,7 +232,7 @@ class ItemLog(Base):
     ITEM_LOG_NO = Column(Integer, primary_key=True)
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
 
-    ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
+    # ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
     SENDER_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
     RECIPIENT_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
 
