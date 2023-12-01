@@ -123,7 +123,7 @@ class ChallengeUser(Base):
 
     CHALLENGE_USER_NO = Column(Integer, primary_key=True)
     ACCEPT_STATUS = Column(Enum(InviteAcceptType, name="InviteAcceptType"))
-    COMMENT = Column(String)
+    COMMENT = Column(String, default="상태메시지를 설정해주세요")
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

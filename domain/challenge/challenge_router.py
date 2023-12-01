@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -6,14 +6,14 @@ from sqlalchemy.orm import Session
 from database import get_db
 from domain.challenge import challenge_schema, challenge_crud
 from domain.challenge.challenge_crud import get_challenge_list, get_challenge_detail, \
-    get_challenge_invite, get_challenge_user_list, get_challenge_user_by_no
+    get_challenge_invite, get_challenge_user_list, get_challenge_user_by_user_no
 from domain.challenge.challenge_schema import ChallengeInvite, PutChallengeInvite
 from domain.user.user_crud import get_current_user
-from models import User, ChallengeUser
+from models import User
 
 router = APIRouter(
     prefix="/challenge",
-    tags=["challenge"]
+    tags=["Challenge"]
 )
 
 
@@ -29,7 +29,7 @@ def challenge_list(db: Session = Depends(get_db),
 
 
 @router.get("/{challenge_mst_no}", response_model=challenge_schema.ChallengeDetail)
-def challenge_detail(challenge_mst_no: int, current_day: datetime, db: Session = Depends(get_db),
+def challenge_detail(challenge_mst_no: int, current_day: date, db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
     _challenge = get_challenge_detail(db, user_no=_current_user.USER_NO, challenge_mst_no=challenge_mst_no,
                                       current_day=current_day)
@@ -53,10 +53,21 @@ def challenge_create(_challenge_create: challenge_schema.ChallengeCreate,
 # @router.put("")
 # @router.delete("")
 @router.get("/user/{challenge_user_no}", response_model=challenge_schema.GetChallengeUserDetail)
-def get_challenge_user_detail(challenge_user_no: int, db: Session = Depends(get_db)):
-    challenge_user = db.query(ChallengeUser).filter(ChallengeUser.CHALLENGE_USER_NO == challenge_user_no).first()
-    if not challenge_user:
-        return None  # 적절한 예외 처리 또는 반환값
+def get_challenge_user_detail(challenge_user_no: int, current_day: date, db: Session = Depends(get_db)):
+    challenge_user_detail = challenge_crud.get_challenge_user_detail(db, challenge_user_no, current_day)
+
+    return challenge_user_detail
+
+
+@router.put("/user/{challenge_mst_no}")
+def put_challenge_user_detail(challenge_mst_no: str, comment: str, db: Session = Depends(get_db),
+                              current_user: User = Depends(get_current_user)):
+    challenge_user = challenge_crud.get_challenge_user_by_user_no(db, challenge_mst_no, current_user.USER_NO)
+    challenge_user.COMMENT = comment
+    db.commit()
+    db.refresh(challenge_user)
+
+    return {"message": "상태메시지 수정완료", "challenge_user": challenge_user}
 
 
 @router.get("/user/list/{challenge_mst_no}", response_model=list[challenge_schema.ChallengeUserList])
@@ -76,7 +87,7 @@ def challenge_invite(challenge_mst_no: int, db: Session = Depends(get_db)):
 @router.put("/invite/{challenge_mst_no}")
 def challenge_invite(put_challenge_invite: PutChallengeInvite, db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
-    challenge_user = get_challenge_user_by_no(db, put_challenge_invite.CHALLENGE_MST_NO, _current_user.USER_NO)
+    challenge_user = get_challenge_user_by_user_no(db, put_challenge_invite.CHALLENGE_MST_NO, _current_user.USER_NO)
     challenge_user.ACCEPT_STATUS = put_challenge_invite.ACCEPT_STATUS
     db.commit()
 
@@ -84,6 +95,9 @@ def challenge_invite(put_challenge_invite: PutChallengeInvite, db: Session = Dep
 
     return {"message": "초대상태 수정완료", "challenge_user": challenge_user}
 
-# @router.get("/mypage")
-# def get_challenge_list_day(challenge_mst_no: int, current_day: datetime, db: Session = Depends(get_db),
-#                            _current_user: User = Depends(get_current_user)):
+
+# @router.get("/history", response_model=challenge_schema.GetChallengeHistory)
+# def get_challenge_history_list(current_day: date, db: Session = Depends(get_db),
+#                                _current_user: User = Depends(get_current_user)):
+#     challenge_history_list = challenge_crud.get_challenge_history_list(db, current_day, _current_user)
+#     return {}

@@ -105,8 +105,22 @@ class PutChallengeInvite(BaseModel):
 class GetChallengeUserDetail(BaseModel):
     CHALLENGE_USER_NO: int
     USER_NM: str
-    CHARACTER_NO: str
+    CHARACTER_NO: int
     PROGRESS: float
     COMMENT: str
     personGoal: List[PersonDailyGoalPydantic]
 
+
+class EmojiUser(BaseModel):
+    CHALLENGE_USER_NO: int
+    EMOJI: str
+
+
+class GetChallengeHistory(BaseModel):
+    CHALLENGE_MST_NO: int
+    CHALLENGE_MST_NM: str
+    IMAGE_FILE_NM: Optional[str]
+    EMOJI: List[EmojiUser]
+    COMMENT: str
+    personGoal: List[PersonDailyGoalPydantic]
+    teamGoal: TeamWeeklyGoalPydantic

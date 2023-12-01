@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import random
 
 from fastapi import HTTPException
@@ -9,11 +9,11 @@ from sqlalchemy.orm import Session
 from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticipant, \
     PersonDailyGoalPydantic, \
     TeamWeeklyGoalPydantic, AdditionalGoalPydantic, ChallengeList, ChallengeInvite, \
-    ChallengeUserList
+    ChallengeUserList, GetChallengeUserDetail
 from domain.desc.utils import calculate_challenge_progress
 from domain.user.user_crud import get_user_by_uid
 from models import ChallengeMaster, User, TeamWeeklyGoal, ChallengeUser, PersonDailyGoal, AdditionalGoal, ItemUser, \
-    Item, InviteAcceptType, Avatar, AvatarUser, PersonDailyGoalComplete
+    Item, InviteAcceptType, Avatar, AvatarUser, PersonDailyGoalComplete, AvatarType
 
 
 # 기능 함수
@@ -29,7 +29,7 @@ def get_challenge_masters_by_user(db: Session, current_user: User) -> ChallengeM
     return challenges
 
 
-# Challenge Master을 Challenge Mst No로 가져오기
+# Challenge Master 객체를 Challenge Mst No로 가져오기
 def get_challenge_master_by_id(db: Session, challenge_mst_no: int) -> ChallengeMaster:
     challenge = db.query(ChallengeMaster).filter(ChallengeMaster.CHALLENGE_MST_NO == challenge_mst_no).first()
 
@@ -120,8 +120,8 @@ def get_challenge_participants(db: Session, challenge_mst_no):
     return participants
 
 
-# Challenge User의 정보를 challenge mst no와 user_no로 가져오기
-def get_challenge_user_by_no(db: Session, challenge_mst_no, user_no):
+# 특정 Challenge User객체의 정보를 challenge mst no와 user_no로 가져오기
+def get_challenge_user_by_user_no(db: Session, challenge_mst_no, user_no):
     challenge_user = db.query(ChallengeUser).filter(
         ChallengeUser.USER_NO == user_no,
         ChallengeUser.CHALLENGE_MST_NO == challenge_mst_no
@@ -133,11 +133,46 @@ def get_challenge_user_by_no(db: Session, challenge_mst_no, user_no):
     return challenge_user
 
 
-# Challenge User들의 정보를 challenge mst no로 가져오기
-def get_challenge_users_by_no(db: Session, challenge_mst_no):
-    challenge_user = db.query(ChallengeUser).filter(
+# Challenge User 객체들의 정보를 challenge mst no로 가져오기
+def get_challenge_users_by_mst_no(db: Session, challenge_mst_no):
+    challenge_users = db.query(ChallengeUser).filter(
         ChallengeUser.CHALLENGE_MST_NO == challenge_mst_no
     ).all()
+
+    if not challenge_users:
+        raise HTTPException(status_code=404, detail="challenge_user를 찾을 수 없습니다.")
+
+    return challenge_users
+
+
+# 해당 날짜의 사용자 person goal 객체들을 가져오기
+def get_person_goal_by_user(db: Session, challenge_user_no: int, current_day: date):
+    person_goals = db.query(PersonDailyGoal).filter(
+        PersonDailyGoal.CHALLENGE_USER_NO == challenge_user_no,
+        PersonDailyGoal.INSERT_DT >= current_day,
+        PersonDailyGoal.INSERT_DT <= current_day + timedelta(days=1)
+    ).all()
+
+    return person_goals
+
+
+# 착용중인 아바타 가져오기
+def get_equipped_avatar(db: Session, user_no: int, avatar_type: AvatarType):
+    avatar = db.query(AvatarUser).join(Avatar, Avatar.AVATAR_NO == AvatarUser.AVATAR_NO).filter(
+        AvatarUser.USER_NO == user_no,
+        AvatarUser.IS_EQUIP == True,
+        Avatar.AVATAR_TYPE == avatar_type
+    ).first()
+
+    if avatar_type == AvatarType.CHARACTER and not avatar:
+        raise HTTPException(status_code=404, detail="CHARACTER 정보를 찾을 수 없습니다.")
+
+    return avatar
+
+
+# challenge_user 객체를 challenge_user_no 값으로 가져오기
+def get_challenge_user_by_challenge_user_no(db: Session, challenge_user_no: int):
+    challenge_user = db.query(ChallengeUser).filter(ChallengeUser.CHALLENGE_USER_NO == challenge_user_no).first()
 
     if not challenge_user:
         raise HTTPException(status_code=404, detail="challenge_user를 찾을 수 없습니다.")
@@ -162,14 +197,10 @@ def get_challenge_list(db: Session, current_user: User):
     return challenge_list
 
 
-def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int, current_day: datetime):
-    challenge_user = get_challenge_user_by_no(db, challenge_mst_no, user_no)
+def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int, current_day: date):
+    challenge_user = get_challenge_user_by_user_no(db, challenge_mst_no, user_no)
 
-    person_goals = db.query(PersonDailyGoal).filter(
-        PersonDailyGoal.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
-        PersonDailyGoal.INSERT_DT >= current_day,
-        PersonDailyGoal.INSERT_DT <= current_day + timedelta(days=1)
-    ).all()
+    person_goals = get_person_goal_by_user(db, challenge_user.CHALLENGE_USER_NO, current_day)
 
     # 현재 UTC 시간 가져오기
     current_utc_time = datetime.utcnow()
@@ -286,26 +317,43 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
 
 def get_challenge_user_list(db: Session, challenge_mst_no: int):
     # ChallengeUserList 정보 조회
-    challenge_users = get_challenge_users_by_no(db, challenge_mst_no)
+    challenge_users = get_challenge_users_by_mst_no(db, challenge_mst_no)
 
     challenge_user_lists = []
     for challenge_user in challenge_users:
         # 각 사용자별로 Character 및 Pet 정보 조회
-        character_info = db.query(Avatar).join(AvatarUser, Avatar.AVATAR_NO == AvatarUser.AVATAR_NO).filter(
-            AvatarUser.USER_NO == challenge_user.USER_NO, Avatar.AVATAR_TYPE == 'CHARACTER').first()
+        character = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.CHARACTER)
 
-        if not character_info:
+        if not character:
             raise HTTPException(status_code=404, detail="캐릭터 정보를 찾을 수 없습니다.")
 
-        pet_info = db.query(Avatar).join(AvatarUser, Avatar.AVATAR_NO == AvatarUser.AVATAR_NO).filter(
-            AvatarUser.USER_NO == challenge_user.USER_NO, Avatar.AVATAR_TYPE == 'PET').first()
+        pet = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.PET)
 
         challenge_user_list = ChallengeUserList(
             CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
             PROGRESS=calculate_user_progress(db, challenge_user.CHALLENGE_USER_NO),
-            CHARACTER_NO=character_info.AVATAR_NO,
-            PET_NO=pet_info.AVATAR_NO if pet_info else None
+            CHARACTER_NO=character.AVATAR_NO,
+            PET_NO=pet.AVATAR_NO if pet else None
         )
         challenge_user_lists.append(challenge_user_list)
 
     return challenge_user_lists
+
+
+def get_challenge_user_detail(db: Session, challenge_user_no: int, current_day: date):
+    challenge_user = get_challenge_user_by_challenge_user_no(db, challenge_user_no)
+    user = db.query(User).filter(User.USER_NO == challenge_user.USER_NO).first()
+    character = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.CHARACTER)
+    person_goal = get_person_goal_by_user(db, challenge_user_no, current_day)
+
+    return GetChallengeUserDetail(
+        CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
+        USER_NM=user.USER_NM,
+        CHARACTER_NO=character.AVATAR_NO,
+        PROGRESS=calculate_user_progress(db, challenge_user_no),
+        COMMENT=challenge_user.COMMENT,
+        personGoal=person_goal
+    )
+
+# def get_challenge_history_list(db: Session, current_day: date, _current_user: User):
+#     return GetChallengeUserDetail()
