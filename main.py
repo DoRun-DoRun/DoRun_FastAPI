@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from domain.challenge import challenge_router
+from domain.challenge.daily import daily_router
+from domain.challenge.weekly import weekly_router
+from domain.desc import desc_router
 from domain.user import user_router
 
 app = FastAPI()
@@ -20,3 +23,7 @@ app = FastAPI()
 
 app.include_router(user_router.router)
 app.include_router(challenge_router.router)
+app.include_router(daily_router.router)
+app.include_router(weekly_router.router)
+
+app.include_router(desc_router.router)

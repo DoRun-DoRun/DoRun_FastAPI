@@ -1,29 +1,138 @@
+from collections import Counter
+
+from fastapi import Depends, HTTPException
+from jose import jwt, JWTError
+from sqlalchemy import or_
+from starlette import status
+from starlette.config import Config
+
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from models import User
 
-from datetime import datetime
+from database import get_db
+from domain.challenge import challenge_crud
+from domain.desc.utils import random_user
+from domain.user.user_schema import CreateUser, UpdateUser, GetUser
+from models import User, SignType, UserSetting, AvatarUser, ChallengeStatusType
+
+from datetime import datetime, timedelta
+
+config = Config('.env')
+ACCESS_TOKEN_EXPIRE_MINUTES = int(config('ACCESS_TOKEN_EXPIRE_MINUTES'))
+SECRET_KEY = config('SECRET_KEY')
+ALGORITHM = "HS256"
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/docs/login")
 
 
-def create_guest_user(db: Session, uid: int):
-    db_user = User(USER_NM="사용자" + str(uid),
-                   SIGN_TYPE="GUEST",
-                   REGISTER_DT=datetime.now(),
-                   UID=uid)
+def check_user_email_id_token_duplicate(db: Session, user_email: str, id_token: str, current_user_id: int = None):
+    query_conditions = []
+    if user_email:
+        query_conditions.append(User.USER_EMAIL == user_email)
+    if id_token:
+        query_conditions.append(User.ID_TOKEN == id_token)
+
+    if current_user_id:
+        query_conditions.append(User.USER_NO != current_user_id)
+
+    existing_user = db.query(User).filter(or_(*query_conditions)).first()
+    if existing_user:
+        if user_email and existing_user.USER_EMAIL == user_email:
+            raise HTTPException(status_code=400, detail="입력된 USER_EMAIL가 이미 존재합니다.")
+        if id_token and existing_user.ID_TOKEN == id_token:
+            raise HTTPException(status_code=400, detail="입력된 ID_TOKEN가 이미 존재합니다.")
+
+
+def create_user(user: CreateUser, db: Session):
+    if user.SIGN_TYPE != SignType.GUEST:
+        check_user_email_id_token_duplicate(db, user.USER_EMAIL, user.ID_TOKEN)
+
+    if user.SIGN_TYPE == SignType.GUEST:
+        db_user = User(USER_NM=random_user(), SIGN_TYPE=user.SIGN_TYPE)
+    else:
+        db_user = User(USER_NM=random_user(), SIGN_TYPE=user.SIGN_TYPE,
+                       USER_EMAIL=user.USER_EMAIL, ID_TOKEN=user.ID_TOKEN)
     db.add(db_user)
     db.commit()
-    return db_user
+
+    db_user_setting = UserSetting(
+        USER_NO=db_user.USER_NO,
+    )
+    db.add(db_user_setting)
+    db_avatar_user = AvatarUser(
+        IS_EQUIP=True,
+        USER_NO=db_user.USER_NO,
+        AVATAR_NO=1,
+    )
+    db.add(db_avatar_user)
+    db.commit()
+
+    return db_user.UID
 
 
-def generate_uid(db: Session) -> int:
-    last_user = db.query(User).order_by(User.USER_NO.desc()).first()
-    last_uid = last_user.UID if last_user else 1000000
-    new_uid = last_uid + 1
-    return new_uid
+def update_user(user: UpdateUser, db: Session, current_user: User):
+    check_user_email_id_token_duplicate(db, user.USER_EMAIL, user.ID_TOKEN, current_user.USER_NO)
+
+    if user.USER_NM is not None:
+        current_user.USER_NM = user.USER_NM
+    if user.SIGN_TYPE is not None:
+        current_user.SIGN_TYPE = user.SIGN_TYPE
+    if user.USER_EMAIL is not None:
+        current_user.USER_EMAIL = user.USER_EMAIL
+    if user.ID_TOKEN is not None:
+        current_user.ID_TOKEN = user.ID_TOKEN
+
+    db.commit()
 
 
-# def get_existing_user(db: Session, user_create: UserCreate):
-#     return db.query(User).filter(User.USER_EMAIL == user_create.USER_EMAIL).first()
+def get_user(db: Session, current_user: User):
+    equipped_avatar_user = db.query(AvatarUser) \
+        .filter(AvatarUser.USER_NO == current_user.USER_NO) \
+        .filter(AvatarUser.IS_EQUIP == True) \
+        .first()
+    if not equipped_avatar_user:
+        raise HTTPException(status_code=400, detail="착용된 아바타를 찾을 수 없습니다.")
+
+    challenges = challenge_crud.get_challenge_masters_by_user(db, current_user)
+    status_counts = Counter(challenge.CHALLENGE_STATUS for challenge in challenges)
+    if not status_counts:
+        raise HTTPException(status_code=400, detail="챌린지 개수를 셀 수 없습니다.")
+
+    return GetUser(USER_NM=current_user.USER_NM, USER_CHARACTER_NO=equipped_avatar_user.AVATAR_USER_NO,
+                   COMPLETE=status_counts[ChallengeStatusType.COMPLETE],
+                   PROGRESS=status_counts[ChallengeStatusType.PROGRESS],
+                   PENDING=status_counts[ChallengeStatusType.PENDING])
 
 
-def get_user(db: Session, uid: int):
-    return db.query(User).filter(User.UID == uid).first()
+def get_user_by_uid(db: Session, uid: int):
+    user = db.query(User).filter(User.UID == uid).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
+
+    return user
+
+
+def encode_token(sub: str, is_exp: bool):
+    data = {
+        "sub": sub,
+    }
+    if is_exp:
+        data["exp"] = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def get_current_user(token: str = Depends(oauth2_scheme),
+                     db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        uid = int(payload.get("sub"))
+        if uid is None:
+            raise HTTPException(status_code=401, detail="UID 정보를 찾을 수 없습니다.")
+    except JWTError:
+        raise HTTPException(status_code=404, detail="JWT 에러")
+    else:
+        user = get_user_by_uid(db, uid=uid)
+        if user.DISABLE_YN is True:
+            raise HTTPException(status_code=400, detail="탈퇴한 사용자입니다.")
+        return user

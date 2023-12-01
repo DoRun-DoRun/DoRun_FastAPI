@@ -1,90 +1,102 @@
 import enum
+from datetime import datetime
 
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Enum, MetaData, ForeignKey, ARRAY
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum, ForeignKey, Date, Sequence
 from sqlalchemy.orm import relationship
 
 from database import Base
 
 
 # Enum 클래스 정의
-class LoginType(enum.Enum):
+class SignType(enum.Enum):
     KAKAO = 'KAKAO'
     APPLE = 'APPLE'
     GUEST = 'GUEST'
 
 
-# Accept 상태를 위한 Enum 타입 정의
-class AcceptType(enum.Enum):
+class ChallengeStatusType(enum.Enum):
+    PENDING = 'PENDING'
+    PROGRESS = 'PROGRESS'
+    COMPLETE = 'COMPLETE'
+    FAILED = 'FAILED'
+
+
+class InviteAcceptType(enum.Enum):
     PENDING = 'PENDING'
     ACCEPTED = 'ACCEPTED'
     DECLINED = 'DECLINED'
     BLOCKED = 'BLOCKED'
 
 
+class ItemType(enum.Enum):
+    BOOM = "BOOM"
+    HAMMER = "HAMMER"
+
+
+class AvatarType(enum.Enum):
+    CHARACTER = "CHARACTER"
+    PET = "PET"
+
+
 class User(Base):
     __tablename__ = "user"
 
     USER_NO = Column(Integer, primary_key=True)
-    REGISTER_DT = Column(DateTime)
-    UPDATE_DT = Column(DateTime)
-    RECENT_LOGIN_DT = Column(DateTime)
+    SIGN_TYPE = Column(Enum(SignType, name="SignType"))
+    USER_NM = Column(String)
+    UID = Column(Integer, Sequence('user_uid_seq', start=1000000), unique=True, index=True)
+    USER_EMAIL = Column(String)
+    ID_TOKEN = Column(String)
+
+    INSERT_DT = Column(DateTime, default=datetime.utcnow)
+    MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    RECENT_LOGIN_DT = Column(DateTime, default=datetime.utcnow)
     DISABLE_YN = Column(Boolean, default=False)
     DISABLE_DT = Column(DateTime)
-    # Here we define the name for the ENUM type
-    SIGN_TYPE = Column(Enum(LoginType, name="LoginType"))
-    USER_NM = Column(String)
-    UID = Column(Integer, unique=True)
-    USER_EMAIL = Column(String, unique=True)
 
-# class Friend(Base):
-#     __tablename__ = 'friend'
-#     FRIEND_NO = Column(Integer, primary_key=True)
-#     SENDER_ID = Column(Integer, ForeignKey('user.USER_NO'), nullable=False)
-#     RECIPIENT_ID = Column(Integer, ForeignKey('user.USER_NO'), nullable=False)
-#     INSERT_DT = Column(DateTime)
-#     ACCEPT_DT = Column(DateTime)
-#     STATUS = Column(Enum(accept_type, name="accept_type"), default=accept_type.PENDING)
-#
-#     # User와 Friend 간의 관계 설정
-#     sender = relationship('User', foreign_keys=[SENDER_ID], backref='sent_friend_requests')
-#     recipient = relationship('User', foreign_keys=[RECIPIENT_ID], backref='received_friend_requests')
-#
-# class Character(Base):
-#     __tablename__ = 'character'
-#     CHARACTER_NO = Column(Integer, primary_key=True)
-#     CHARACTER_NM = Column(String)
-#     INSERT_DT = Column(DateTime)
-#     UPDATE_DT = Column(DateTime)
-#
-# class Pet(Base):
-#     __tablename__ = 'pet'
-#     PET_NO = Column(Integer, primary_key=True)
-#     PET_NM = Column(String)
-#     INSERT_DT = Column(DateTime)
-#     UPDATE_DT = Column(DateTime)
-#
-# class Mypage(Base):
-#     __tablename__ = 'mypage'
-#     Mypage_NO = Column(Integer, primary_key=True)
-#     USER_ID = Column(Integer, ForeignKey('user.USER_NO'))  # 'user' 테이블의 USER_NO를 참조
-#     INSERT_DT = Column(DateTime)
-#     UPDATE_DT = Column(DateTime)
-#     # PostgreSQL의 ARRAY 타입을 사용하여 Character와 Pet의 ID 배열을 저장
-#     MY_CHARACTER = Column(ARRAY(Integer))
-#     MY_PET = Column(ARRAY(Integer))
-#     CURRENT_CHARACTER_NO = Column(Integer, ForeignKey('character.CHARACTER_NO'))
-#     CURRENT_PET_NO = Column(Integer, ForeignKey('pet.PET_NO'))
-#
-#     # 단일 관계 설정
-#     CURRENT_CHARACTER = relationship('Character', foreign_keys=[CURRENT_CHARACTER_NO])
-#     CURRENT_PET = relationship('Pet', foreign_keys=[CURRENT_PET_NO])
+    CHALLENGES = relationship('ChallengeUser', back_populates='USER')
 
 
-class ChallengeStatus(enum.Enum):
-    PENDING = 'PENDING'
-    ACTIVE = 'ACTIVE'
-    COMPLETE = 'COMPLETE'
-    FAILED = 'FAILED'
+class UserSetting(Base):
+    __tablename__ = 'user_setting'
+
+    USER_SETTING_NO = Column(Integer, primary_key=True)
+    AGREE_POLICY_YN = Column(Boolean, default=False)
+    AGREE_POLICY_DT = Column(DateTime)
+    NOTICE_PUSH_YN = Column(Boolean, default=False)
+    NOTICE_PUSH_DT = Column(DateTime)
+    NOTICE_PUSH_NIGHT_YN = Column(Boolean, default=False)
+    NOTICE_PUSH_NIGHT_DT = Column(DateTime)
+    USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
+
+
+class Friend(Base):
+    __tablename__ = 'friend'
+
+    FRIEND_NO = Column(Integer, primary_key=True)
+    INSERT_DT = Column(DateTime, default=datetime.utcnow)
+    ACCEPT_DT = Column(DateTime)
+    ACCEPT_STATUS = Column(Enum(InviteAcceptType), name='InviteAcceptType')
+    SENDER_UID = Column(Integer, ForeignKey('user.USER_NO'))
+    RECIPIENT_UID = Column(Integer, ForeignKey('user.USER_NO'))
+
+
+class Avatar(Base):
+    __tablename__ = 'avatar'
+
+    AVATAR_NO = Column(Integer, primary_key=True)
+    AVATAR_NM = Column(String, nullable=False)
+    AVATAR_TYPE = Column(Enum(AvatarType, name='AvatarType'))
+
+
+class AvatarUser(Base):
+    __tablename__ = 'avatar_user'
+
+    AVATAR_USER_NO = Column(Integer, primary_key=True)
+    IS_EQUIP = Column(Boolean)
+    AVATAR_NO = Column(Integer, ForeignKey('avatar.AVATAR_NO'))
+    USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
 
 
 class ChallengeMaster(Base):
@@ -92,13 +104,137 @@ class ChallengeMaster(Base):
 
     CHALLENGE_MST_NO = Column(Integer, primary_key=True)
     CHALLENGE_MST_NM = Column(String)
-    USERS_UID = Column(ARRAY(Integer))
-    START_DT = Column(DateTime)
-    END_DT = Column(DateTime)
+    START_DT = Column(Date)
+    END_DT = Column(Date)
     HEADER_EMOJI = Column(String)
-    INSERT_DT = Column(DateTime)
-    INSERT_USER_UID = Column(Integer, ForeignKey('user.UID'), nullable=False)
+    CHALLENGE_STATUS = Column(Enum(ChallengeStatusType, name='ChallengeStatusType'))
+
+    INSERT_DT = Column(DateTime, default=datetime.utcnow)
+    MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     DELETE_DT = Column(DateTime)
     DELETE_YN = Column(Boolean, default=False)
-    CHALLENGE_STATUS = Column(Enum(ChallengeStatus, name='ChallengeStatus'))
-    user = relationship('User', backref='challenge_master_users')
+
+    USERS = relationship('ChallengeUser', back_populates='CHALLENGE_MST')
+
+
+class ChallengeUser(Base):
+    __tablename__ = 'challenge_users'
+
+    CHALLENGE_USER_NO = Column(Integer, primary_key=True)
+    ACCEPT_STATUS = Column(Enum(InviteAcceptType, name="InviteAcceptType"))
+
+    INSERT_DT = Column(DateTime, default=datetime.utcnow)
+    MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    IS_OWNER = Column(Boolean)
+    IS_LEADER = Column(Boolean)
+
+    USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
+    USER = relationship('User', back_populates='CHALLENGES')
+
+    CHALLENGE_MST_NO = Column(Integer, ForeignKey('challenge_master.CHALLENGE_MST_NO'))
+    CHALLENGE_MST = relationship('ChallengeMaster', back_populates='USERS')
+
+    # Index('ix_challenge_users_user_no', 'USER_NO')
+    # Index('ix_challenge_users_challenge_mst_no', 'CHALLENGE_MST_NO')
+
+
+class PersonDailyGoal(Base):
+    __tablename__ = 'person_daily_goal'
+
+    PERSON_NO = Column(Integer, primary_key=True)
+    PERSON_NM = Column(String)
+    IS_DONE = Column(Boolean)
+
+    INSERT_DT = Column(DateTime, default=datetime.utcnow)
+    UPDATE_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    CHALLENGE_USER = relationship('ChallengeUser', backref="person_daily_goal")
+    CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+
+
+class TeamWeeklyGoal(Base):
+    __tablename__ = 'team_weekly_goal'
+
+    TEAM_NO = Column(Integer, primary_key=True)
+    TEAM_NM = Column(String, default="팀 목표를 입력해주세요")
+    IS_DONE = Column(Boolean, default=False)
+    START_DT = Column(DateTime)
+    END_DT = Column(DateTime)
+
+    INSERT_DT = Column(DateTime, default=datetime.utcnow)
+    MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    CHALLENGE_USER = relationship('ChallengeUser', backref="team_weekly_goal")
+    CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+
+
+class AdditionalGoal(Base):
+    __tablename__ = 'additional_goal'
+
+    ADDITIONAL_NO = Column(Integer, primary_key=True)
+    ADDITIONAL_NM = Column(String)
+    IS_DONE = Column(Boolean)
+    START_DT = Column(DateTime)
+    END_DT = Column(DateTime)
+    IMAGE_FILE_NM = Column(String)
+
+    CHALLENGE_USER = relationship('ChallengeUser', backref="additional_goal")
+    CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+
+
+class PersonDailyGoalComplete(Base):
+    __tablename__ = 'person_daily_goal_complete'
+
+    DAILY_COMPLETE_NO = Column(Integer, primary_key=True)
+    IMAGE_FILE_NM = Column(String)
+    INSERT_DT = Column(DateTime, default=datetime.utcnow)
+    COMMENTS = Column(String)
+
+    CHALLENGE_USER = relationship('ChallengeUser', backref="person_daily_goal_complete")
+    CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+
+
+class DailyCompleteUser(Base):
+    __tablename__ = 'daily_complete_user'
+
+    DAILY_COMPLETE_USER_NO = Column(Integer, primary_key=True)
+    EMOJI = Column(String)
+    DAILY_COMPLETE_NO = Column(Integer, ForeignKey('person_daily_goal_complete.DAILY_COMPLETE_NO'))
+
+    CHALLENGE_USER = relationship('ChallengeUser', backref="daily_complete_user")
+    CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+
+
+class Item(Base):
+    __tablename__ = 'item'
+
+    ITEM_NO = Column(Integer, primary_key=True)
+    ITEM_NM = Column(Enum(ItemType, name="ItemType"), nullable=False)
+
+
+class ItemUser(Base):
+    __tablename__ = 'item_user'
+
+    ITEM_USER_NO = Column(Integer, primary_key=True)
+    COUNT = Column(Integer, default=0)
+
+    ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
+
+    CHALLENGE_USER = relationship('ChallengeUser', backref='item_users')
+    CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+
+
+class ItemLog(Base):
+    __tablename__ = 'item_log'
+
+    ITEM_LOG_NO = Column(Integer, primary_key=True)
+    INSERT_DT = Column(DateTime, default=datetime.utcnow)
+
+    # ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
+    SENDER_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+    RECIPIENT_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+
+    sender = relationship('ChallengeUser', foreign_keys=[SENDER_UID])
+    recipient = relationship('ChallengeUser', foreign_keys=[RECIPIENT_UID])

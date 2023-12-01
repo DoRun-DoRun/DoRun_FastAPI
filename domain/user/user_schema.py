@@ -1,27 +1,8 @@
-from pydantic import BaseModel, EmailStr
-from pydantic.v1 import validator
 from typing import Optional
-from models import LoginType
 
-import enum
+from pydantic import BaseModel, EmailStr
 
-
-# class UserCreate(BaseModel):
-#     USER_NM: str
-#     USER_EMAIL: EmailStr
-#     SIGN_TYPE: login_type
-#
-#     @validator('USER_NM', 'USER_EMAIL')
-#     def not_empty_string(cls, v):
-#         if not v or not v.strip():
-#             raise ValueError('빈 값은 허용되지 않습니다.')
-#         return v
-#
-#     @validator('SIGN_TYPE')
-#     def validate_enum(cls, v):
-#         if not v:
-#             raise ValueError('Enum 값은 비어 있을 수 없습니다.')
-#         return v
+from models import SignType
 
 
 class Token(BaseModel):
@@ -31,6 +12,39 @@ class Token(BaseModel):
     UID: int
 
 
-class User(BaseModel):
+class CreateUser(BaseModel):
+    ID_TOKEN: Optional[str] = None
+    USER_EMAIL: Optional[EmailStr] = None
+    SIGN_TYPE: SignType
+
+    @property
+    def is_valid(self):
+        if self.SIGN_TYPE != SignType.GUEST:
+            if not self.ID_TOKEN:
+                return False, "ID_TOKEN을 입력해주세요."
+            if not self.USER_EMAIL:
+                return False, "USER_EMAIL 입력해주세요."
+        return True, ""
+
+
+class UpdateUser(BaseModel):
+    USER_NM: Optional[str] = None
+    SIGN_TYPE: Optional[SignType] = None
+    USER_EMAIL: Optional[EmailStr] = None
+    ID_TOKEN: Optional[str] = None
+
+
+class UpdateUserResponse(BaseModel):
     UID: int
     USER_NM: str
+    SIGN_TYPE: SignType
+    USER_EMAIL: EmailStr
+    ID_TOKEN: str
+
+
+class GetUser(BaseModel):
+    USER_NM: str
+    USER_CHARACTER_NO: int
+    COMPLETE: int
+    PROGRESS: int
+    PENDING: int

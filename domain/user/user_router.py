@@ -1,39 +1,26 @@
-import secrets
-from datetime import timedelta, datetime
-
-from starlette.config import Config
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 from fastapi import Depends
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from jose import jwt, JWTError
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from starlette import status
 
 from database import get_db
 from domain.user import user_crud, user_schema
+from domain.user.user_crud import encode_token, get_current_user
+from domain.user.user_schema import CreateUser, UpdateUser, GetUser, UpdateUserResponse
 from models import User
 
 router = APIRouter(
-    prefix="/api/user",
+    prefix="/user",
+    tags=["user"]
 )
 
-config = Config('.env')
-ACCESS_TOKEN_EXPIRE_MINUTES = int(config('ACCESS_TOKEN_EXPIRE_MINUTES'))
-SECRET_KEY = config('SECRET_KEY')
-ALGORITHM = "HS256"
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/test/login")
-
-
-@router.post("/test/login")
+@router.post("/docs/login")
 def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    current_user = user_crud.get_user(db, uid=int(form_data.username))
-    data = {
-        "sub": str(current_user.UID),
-        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    }
-    access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+    current_user = user_crud.get_user_by_uid(db, uid=int(form_data.username))
+    access_token = encode_token(str(current_user.UID), is_exp=True)
 
     return {
         "access_token": access_token,
@@ -42,24 +29,17 @@ def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Sessio
     }
 
 
-@router.post("/create/guest", response_model=user_schema.Token)
-def user_create(db: Session = Depends(get_db)):
-    # user = user_crud.get_existing_user(db, user_create=_user_create)
-    # if user:
-    #     raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-    #                         detail="이미 존재하는 EMAIL입니다.")
-    new_uid = user_crud.generate_uid(db)
-    user_crud.create_guest_user(db=db, uid=new_uid)
+@router.post("", response_model=user_schema.Token)
+def create_user(user: CreateUser, db: Session = Depends(get_db)):
+    is_valid, message = user.is_valid
 
-    # Access Token 생성
-    data = {
-        "sub": str(new_uid),
-        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    }
-    access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
 
-    # Refresh Token 생성
-    refresh_token = jwt.encode({"sub": str(new_uid)}, SECRET_KEY, algorithm=ALGORITHM)
+    new_uid = user_crud.create_user(user, db)
+
+    access_token = encode_token(str(new_uid), is_exp=True)
+    refresh_token = encode_token(str(new_uid), is_exp=False)
 
     return {
         "access_token": access_token,
@@ -69,40 +49,57 @@ def user_create(db: Session = Depends(get_db)):
     }
 
 
-def get_current_user(token: str = Depends(oauth2_scheme),
-                     db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        uid = int(payload.get("sub"))
-        if uid is None:
-            print("NONE")
-            raise credentials_exception
-    except JWTError:
-        print("ERROR")
-        raise credentials_exception
-    else:
-        user = user_crud.get_user(db, uid=uid)
-        if user is None:
-            print("NONE USER")
-            raise credentials_exception
-        return user
+@router.get("", response_model=GetUser)
+def get_user(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return user_crud.get_user(db, current_user)
 
 
-@router.post("/login")
-def login_for_access_token(current_user: User = Depends(get_current_user)):
-    data = {
-        "sub": current_user.UID,
-        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    }
-    access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+@router.get("/login")
+def login_for_access_token(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    access_token = encode_token(str(current_user.UID), is_exp=True)
+
+    if not access_token:
+        raise HTTPException(status_code=404, detail="AccessToken 발급 실패")
+
+    current_user.RECENT_LOGIN_DT = datetime.utcnow()
+    db.add(current_user)
+    db.commit()
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "UID": current_user.UID
+    }
+
+
+@router.put("", response_model=UpdateUserResponse)
+def update_user(user: UpdateUser, db: Session = Depends(get_db),
+                current_user: User = Depends(get_current_user)):
+    user_crud.update_user(user, db, current_user)
+
+    return UpdateUserResponse(
+        UID=current_user.UID,
+        USER_NM=current_user.USER_NM,
+        SIGN_TYPE=current_user.SIGN_TYPE,
+        USER_EMAIL=current_user.USER_EMAIL,
+        ID_TOKEN=current_user.ID_TOKEN
+    )
+
+
+@router.delete("")
+def delete_user(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    current_user.DISABLE_YN = True
+    current_user.DISABLE_DT = datetime.utcnow()
+
+    if current_user.USER_EMAIL:
+        current_user.USER_EMAIL = current_user.USER_EMAIL + "#disabled"
+
+    if current_user.ID_TOKEN:
+        current_user.ID_TOKEN = None
+
+    db.commit()
+
+    return {
+        "USER_UID": current_user.UID,
+        "message": "삭제 성공"
     }
