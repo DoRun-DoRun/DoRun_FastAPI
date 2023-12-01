@@ -3,15 +3,17 @@ import random
 from typing import Dict, Any
 
 from fastapi import HTTPException
+from sqlalchemy import func, Integer
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticipant, Challenge, PersonDailyGoalPydantic, \
     TeamWeeklyGoalPydantic, AdditionalGoalPydantic, ChallengeList, ChallengeListPydantic, ChallengeInvite, \
     ChallengeUserList
-from domain.desc.utils import calculate_progress
+from domain.desc.utils import calculate_challenge_progress
 from domain.user.user_crud import get_user_by_uid
 from models import ChallengeMaster, User, TeamWeeklyGoal, ChallengeUser, PersonDailyGoal, AdditionalGoal, ItemUser, \
-    Item, InviteAcceptType, Avatar, AvatarUser
+    Item, InviteAcceptType, Avatar, AvatarUser, PersonDailyGoalComplete
 
 
 def get_challenge_list(db: Session, current_user: User):
@@ -23,7 +25,7 @@ def get_challenge_list(db: Session, current_user: User):
     challenge_list = []
     for challenge in challenges:
         challenge_info = ChallengeList.model_validate(challenge)
-        challenge_info.PROGRESS = calculate_progress(challenge.START_DT, challenge.END_DT)
+        challenge_info.PROGRESS = calculate_challenge_progress(challenge.START_DT, challenge.END_DT)
 
         challenge_list.append(challenge_info)
 
@@ -227,7 +229,7 @@ def get_challenge_user_list(db: Session, challenge_mst_no: int):
 
         challenge_user_list = ChallengeUserList(
             CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
-            PROGRESS=0,
+            PROGRESS=calculate_user_progress(db, challenge_user.CHALLENGE_USER_NO),
             CHARACTER_NO=character_info.AVATAR_NO,
             PET_NO=pet_info.AVATAR_NO if pet_info else None
         )
@@ -235,23 +237,65 @@ def get_challenge_user_list(db: Session, challenge_mst_no: int):
 
     return challenge_user_lists
 
-# def calculate_challenge_progress(db: Session, challenge_id):
-#     # 챌린지 기간 가져오기
-#     challenge = db.query(ChallengeMaster).filter(ChallengeMaster.CHALLENGE_MST_NO == challenge_id).one()
-#     total_days = (challenge.END_DT - challenge.START_DT).days + 1
-#
-#     # 각 날짜별 완료된 PersonDailyGoal 수집
-#     daily_goals_count = db.query(
-#         func.date(PersonDailyGoal.INSERT_DT),
-#         func.count(PersonDailyGoal.PERSON_NO)
-#     ).filter(
-#         PersonDailyGoal.CHALLENGE_USER_NO == challenge_id,
-#         PersonDailyGoal.IS_DONE == True
-#     ).group_by(
-#         func.date(PersonDailyGoal.INSERT_DT)
-#     ).all()
-#
-#     # 진행도 계산
-#     progress = sum((100 / total_days) * (1 / count) for _, count in daily_goals_count)
-#
-#     return progress
+
+def calculate_user_progress(db: Session, challenge_user_no: int):
+    try:
+        # 챌린지 마스터의 시작 및 종료 날짜만 선택
+        challenge_master = db.query(ChallengeMaster.START_DT, ChallengeMaster.END_DT).filter(
+            ChallengeMaster.USERS.any(CHALLENGE_USER_NO=challenge_user_no)).first()
+
+        if not challenge_master:
+            raise ValueError("챌린지 마스터 정보를 찾을 수 없습니다.")
+
+        start_dt = challenge_master.START_DT
+        end_dt = challenge_master.END_DT
+
+        # 챌린지 기간 계산
+        day = (end_dt - start_dt).days + 1
+
+        if day <= 0:
+            raise ValueError("챌린지 기간이 잘못되었습니다.")
+
+        week = (day // 7) + 1
+
+        # 일일, 주간, 추가 목표 진행도를 단일 쿼리로 계산
+        progress_stats = db.query(
+            func.count(PersonDailyGoalComplete.DAILY_COMPLETE_NO),
+            func.sum(func.cast(TeamWeeklyGoal.IS_DONE, Integer)),
+            func.sum(func.cast(AdditionalGoal.IS_DONE, Integer)),
+            func.sum(func.cast(AdditionalGoal.IS_DONE == False, Integer))
+        ).select_from(ChallengeUser) \
+            .outerjoin(PersonDailyGoalComplete,
+                       ChallengeUser.CHALLENGE_USER_NO == PersonDailyGoalComplete.CHALLENGE_USER_NO) \
+            .outerjoin(TeamWeeklyGoal, ChallengeUser.CHALLENGE_USER_NO == TeamWeeklyGoal.CHALLENGE_USER_NO) \
+            .outerjoin(AdditionalGoal, ChallengeUser.CHALLENGE_USER_NO == AdditionalGoal.CHALLENGE_USER_NO) \
+            .filter(ChallengeUser.CHALLENGE_USER_NO == challenge_user_no) \
+            .group_by(ChallengeUser.CHALLENGE_USER_NO).first()
+
+        if not progress_stats:
+            raise ValueError("진행도 데이터를 찾을 수 없습니다.")
+
+        daily_goals_completed, weekly_goals_completed, additional_goals_completed, additional_goals_failed = progress_stats
+
+        # None 값 처리
+        daily_goals_completed = daily_goals_completed or 0
+        weekly_goals_completed = weekly_goals_completed or 0
+        additional_goals_completed = additional_goals_completed or 0
+        additional_goals_failed = additional_goals_failed or 0
+
+        # 진행도 계산
+        daily_progress = (85 / day) * daily_goals_completed
+        weekly_progress = (15 / week) * weekly_goals_completed
+        additional_progress = (additional_goals_completed - additional_goals_failed) * 5
+
+        # 전체 진행도 계산
+        total_progress = daily_progress + weekly_progress + additional_progress
+
+        return total_progress
+
+    except SQLAlchemyError as e:
+        # 데이터베이스 쿼리 중 발생하는 예외 처리
+        raise ValueError("데이터베이스 처리 중 오류 발생: " + str(e))
+    except ValueError as e:
+        # 기타 계산 또는 데이터 검증 중 발생하는 예외 처리
+        raise ValueError("계산 중 오류 발생: " + str(e))
