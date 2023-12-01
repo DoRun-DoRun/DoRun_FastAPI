@@ -63,7 +63,7 @@ def get_challenge_user_by_no(db: Session, challenge_mst_no, user_no=None):
 
 def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int, current_day: datetime) -> Dict[str, Any]:
     # ChallengeUser 정보 검색
-    challenge_user = get_challenge_user_by_no(db, user_no, challenge_mst_no)
+    challenge_user = get_challenge_user_by_no(db, challenge_mst_no, user_no)
 
     # PersonDailyGoal 목록 검색
     person_goals = db.query(PersonDailyGoal).filter(
@@ -185,7 +185,7 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
             USER=user,
             IS_OWNER=current_user == user if True else False,
             IS_LEADER=team_leader == user if True else False,
-            ACCEPT_STATUS=current_user == user if InviteAcceptType.ACCEPTED else InviteAcceptType.PENDING
+            ACCEPT_STATUS=InviteAcceptType.ACCEPTED if current_user == user else InviteAcceptType.PENDING
         )
         db.add(db_challenge_user)
 

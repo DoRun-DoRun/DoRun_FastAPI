@@ -107,7 +107,7 @@ def get_user(db: Session, current_user: User):
 def get_user_by_uid(db: Session, uid: int):
     user = db.query(User).filter(User.UID == uid).first()
     if not user:
-        raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
+        raise HTTPException(status_code=401, detail="UID로 부터 사용자를 찾을 수 없습니다.")
 
     return user
 
@@ -128,7 +128,7 @@ def get_current_user(token: str = Depends(oauth2_scheme),
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         uid = int(payload.get("sub"))
         if uid is None:
-            raise HTTPException(status_code=401, detail="UID 정보를 찾을 수 없습니다.")
+            raise HTTPException(status_code=401, detail="토큰값으로부터 UID 정보를 찾을 수 없습니다.")
     except JWTError:
         raise HTTPException(status_code=404, detail="JWT 에러")
     else:
