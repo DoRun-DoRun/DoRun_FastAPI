@@ -65,9 +65,9 @@ def complete_daily(_complete_daily: daily_schema.CompleteDailyGoalAll,
 
     if db_person_goal_complete:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="이미 완료된 챌린지입니다.")
+                            detail="이미 완료된 개인 목표입니다.")
     elif _current_user.USER_NO != _challenge_user.USER_NO:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="챌린지 완료 권한이 없습니다.")
+                            detail="완료 권한이 없습니다.")
 
     daily_crud.complete_daily_goal(db, complete_daily=_complete_daily)
