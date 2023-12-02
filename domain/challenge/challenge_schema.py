@@ -3,26 +3,43 @@ from datetime import datetime, date
 from pydantic import BaseModel
 from typing import List, Optional
 
-from models import ChallengeStatus, AcceptType
+from models import ChallengeStatusType, InviteAcceptType
 
 
 class ChallengeParticipant(BaseModel):
     UID: int
-    ACCEPT_STATUS: Optional[AcceptType]
+    USER_NM: str
+    ACCEPT_STATUS: InviteAcceptType
 
 
-class Challenge(BaseModel):
+class ChallengeUserList(BaseModel):
+    CHALLENGE_USER_NO: int
+    PROGRESS: float
+    CHARACTER_NO: int
+    PET_NO: Optional[int]
+
+    class Config:
+        from_attributes = True
+
+
+class ChallengeMST(BaseModel):
     CHALLENGE_MST_NO: int
     CHALLENGE_MST_NM: str
     START_DT: datetime
     END_DT: datetime
     HEADER_EMOJI: str
-    CHALLENGE_STATUS: ChallengeStatus
-    PROGRESS: Optional[float] = None
-    PARTICIPANTS: Optional[List[ChallengeParticipant]] = None
+    CHALLENGE_STATUS: ChallengeStatusType
 
     class Config:
         from_attributes = True
+
+
+class ChallengeList(ChallengeMST):
+    PROGRESS: Optional[float] = None
+
+
+class ChallengeInvite(ChallengeMST):
+    PARTICIPANTS: List[ChallengeParticipant]
 
 
 class PersonDailyGoalPydantic(BaseModel):
@@ -38,6 +55,7 @@ class TeamWeeklyGoalPydantic(BaseModel):
     TEAM_NO: int
     TEAM_NM: str
     IS_DONE: bool
+    CHALLENGE_USER_NO: int
 
     class Config:
         from_attributes = True
@@ -50,6 +68,7 @@ class AdditionalGoalPydantic(BaseModel):
     IMAGE_FILE_NM: Optional[str]
     START_DT: datetime
     END_DT: datetime
+    CHALLENGE_USER_NO: int
 
     class Config:
         from_attributes = True
@@ -57,7 +76,6 @@ class AdditionalGoalPydantic(BaseModel):
 
 class ChallengeDetail(BaseModel):
     CHALLENGE_USER_NO: int
-    challenge: Challenge
     personGoal: List[PersonDailyGoalPydantic]
     teamGoal: List[TeamWeeklyGoalPydantic]
     additionalGoal: List[AdditionalGoalPydantic]
@@ -70,10 +88,39 @@ class ChallengeCreate(BaseModel):
     END_DT: date
     HEADER_EMOJI: str
     INSERT_DT: datetime
-    CHALLENGE_STATUS: ChallengeStatus
+    CHALLENGE_STATUS: ChallengeStatusType
 
     # @validator('*', pre=True)
     # def not_empty(cls, value: Any, field) -> Any:
     #     if isinstance(value, str) and not value.strip():
     #         raise ValueError(f'{field.name} 필드에 빈 값은 허용 되지 않습니다.')
     #     return value
+
+
+class PutChallengeInvite(BaseModel):
+    CHALLENGE_MST_NO: int
+    ACCEPT_STATUS: InviteAcceptType
+
+
+class GetChallengeUserDetail(BaseModel):
+    CHALLENGE_USER_NO: int
+    USER_NM: str
+    CHARACTER_NO: int
+    PROGRESS: float
+    COMMENT: str
+    personGoal: List[PersonDailyGoalPydantic]
+
+
+class EmojiUser(BaseModel):
+    CHALLENGE_USER_NO: int
+    EMOJI: str
+
+
+class GetChallengeHistory(BaseModel):
+    CHALLENGE_MST_NO: int
+    CHALLENGE_MST_NM: str
+    IMAGE_FILE_NM: Optional[str]
+    EMOJI: List[EmojiUser]
+    COMMENT: str
+    personGoal: List[PersonDailyGoalPydantic]
+    teamGoal: TeamWeeklyGoalPydantic

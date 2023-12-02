@@ -9,8 +9,8 @@ from domain.user.user_crud import get_current_user
 from models import User
 
 router = APIRouter(
-    prefix="/challenge",
-    tags=["challenge"]
+    prefix="/team_goal",
+    tags=["Team Goal"]
 )
 
 

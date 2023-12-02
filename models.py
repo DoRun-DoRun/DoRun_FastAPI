@@ -1,8 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Enum, MetaData, ForeignKey, ARRAY, \
-    JSON, Date, Table, Double, Sequence, Index
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum, ForeignKey, Date, Sequence
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -15,15 +14,14 @@ class SignType(enum.Enum):
     GUEST = 'GUEST'
 
 
-class ChallengeStatus(enum.Enum):
+class ChallengeStatusType(enum.Enum):
     PENDING = 'PENDING'
-    ACTIVE = 'ACTIVE'
+    PROGRESS = 'PROGRESS'
     COMPLETE = 'COMPLETE'
     FAILED = 'FAILED'
 
 
-# Accept 상태를 위한 Enum 타입 정의
-class AcceptType(enum.Enum):
+class InviteAcceptType(enum.Enum):
     PENDING = 'PENDING'
     ACCEPTED = 'ACCEPTED'
     DECLINED = 'DECLINED'
@@ -35,22 +33,9 @@ class ItemType(enum.Enum):
     HAMMER = "HAMMER"
 
 
-class CharacterType(enum.Enum):
-    CHARACTER_TYPE1 = 'CHARACTER_TYPE1'
-    CHARACTER_TYPE2 = 'CHARACTER_TYPE2'
-    CHARACTER_TYPE3 = 'CHARACTER_TYPE3'
-    CHARACTER_TYPE4 = 'CHARACTER_TYPE4'
-
-
-class PetType(enum.Enum):
-    PET_TYPE1 = 'PET_TYPE1'
-    PET_TYPE2 = 'PET_TYPE2'
-
-
-class OwnerShipType(enum.Enum):
-    OWNER: 'OWNER'
-    EQUIP: 'EQUIP'
-    LACK: 'LACK'
+class AvatarType(enum.Enum):
+    CHARACTER = "CHARACTER"
+    PET = "PET"
 
 
 class User(Base):
@@ -60,13 +45,13 @@ class User(Base):
     SIGN_TYPE = Column(Enum(SignType, name="SignType"))
     USER_NM = Column(String)
     UID = Column(Integer, Sequence('user_uid_seq', start=1000000), unique=True, index=True)
-    USER_EMAIL = Column(String, unique=True)
+    USER_EMAIL = Column(String)
     ID_TOKEN = Column(String)
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    RECENT_LOGIN_DT = Column(DateTime)
+    RECENT_LOGIN_DT = Column(DateTime, default=datetime.utcnow)
     DISABLE_YN = Column(Boolean, default=False)
     DISABLE_DT = Column(DateTime)
 
@@ -77,11 +62,11 @@ class UserSetting(Base):
     __tablename__ = 'user_setting'
 
     USER_SETTING_NO = Column(Integer, primary_key=True)
-    AGREE_POLICY_YN = Column(Boolean)
+    AGREE_POLICY_YN = Column(Boolean, default=False)
     AGREE_POLICY_DT = Column(DateTime)
-    NOTICE_PUSH_YN = Column(Boolean)
+    NOTICE_PUSH_YN = Column(Boolean, default=False)
     NOTICE_PUSH_DT = Column(DateTime)
-    NOTICE_PUSH_NIGHT_YN = Column(Boolean)
+    NOTICE_PUSH_NIGHT_YN = Column(Boolean, default=False)
     NOTICE_PUSH_NIGHT_DT = Column(DateTime)
     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
 
@@ -92,26 +77,25 @@ class Friend(Base):
     FRIEND_NO = Column(Integer, primary_key=True)
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     ACCEPT_DT = Column(DateTime)
-    ACCEPT_STATUS = Column(Enum(AcceptType), name='AcceptType')
+    ACCEPT_STATUS = Column(Enum(InviteAcceptType), name='InviteAcceptType')
     SENDER_UID = Column(Integer, ForeignKey('user.USER_NO'))
     RECIPIENT_UID = Column(Integer, ForeignKey('user.USER_NO'))
 
 
-class Character(Base):
-    __tablename__ = 'character'
+class Avatar(Base):
+    __tablename__ = 'avatar'
 
-    CHARACTER_NO = Column(Integer, primary_key=True)
-    CHARACTER_NM = Column(String)
-    STATUS = Column(Enum(OwnerShipType, name='OwnerShipType'))
-    USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
+    AVATAR_NO = Column(Integer, primary_key=True)
+    AVATAR_NM = Column(String, nullable=False)
+    AVATAR_TYPE = Column(Enum(AvatarType, name='AvatarType'))
 
 
-class Pet(Base):
-    __tablename__ = 'pet'
+class AvatarUser(Base):
+    __tablename__ = 'avatar_user'
 
-    PET_NO = Column(Integer, primary_key=True)
-    PET_NM = Column(Enum(PetType), name='PetType')
-    STATUS = Column(Enum(OwnerShipType, name='OwnerShipType'))
+    AVATAR_USER_NO = Column(Integer, primary_key=True)
+    IS_EQUIP = Column(Boolean)
+    AVATAR_NO = Column(Integer, ForeignKey('avatar.AVATAR_NO'))
     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
 
 
@@ -123,7 +107,7 @@ class ChallengeMaster(Base):
     START_DT = Column(Date)
     END_DT = Column(Date)
     HEADER_EMOJI = Column(String)
-    CHALLENGE_STATUS = Column(Enum(ChallengeStatus, name='ChallengeStatus'))
+    CHALLENGE_STATUS = Column(Enum(ChallengeStatusType, name='ChallengeStatusType'))
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -138,7 +122,8 @@ class ChallengeUser(Base):
     __tablename__ = 'challenge_users'
 
     CHALLENGE_USER_NO = Column(Integer, primary_key=True)
-    ACCEPT_STATUS = Column(Enum(AcceptType, name="AcceptType"))
+    ACCEPT_STATUS = Column(Enum(InviteAcceptType, name="InviteAcceptType"))
+    COMMENT = Column(String, default="상태메시지를 설정해주세요")
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -223,12 +208,20 @@ class DailyCompleteUser(Base):
     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
 
 
+class Item(Base):
+    __tablename__ = 'item'
+
+    ITEM_NO = Column(Integer, primary_key=True)
+    ITEM_NM = Column(Enum(ItemType, name="ItemType"), nullable=False)
+
+
 class ItemUser(Base):
     __tablename__ = 'item_user'
 
-    ITEM_NO = Column(Integer, primary_key=True)
-    ITEM_NM = Column(Enum(ItemType, name='ItemType'))
-    COUNT = Column(Integer)
+    ITEM_USER_NO = Column(Integer, primary_key=True)
+    COUNT = Column(Integer, default=0)
+
+    ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
 
     CHALLENGE_USER = relationship('ChallengeUser', backref='item_users')
     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
@@ -238,8 +231,9 @@ class ItemLog(Base):
     __tablename__ = 'item_log'
 
     ITEM_LOG_NO = Column(Integer, primary_key=True)
-    ITEM_NM = Column(Enum(ItemType, name='ItemType'))
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
+
+    # ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
     SENDER_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
     RECIPIENT_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
 
