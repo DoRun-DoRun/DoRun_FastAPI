@@ -2,24 +2,25 @@ from pydantic import BaseModel
 
 
 class CreatePersonGoal(BaseModel):
-    CHALLENGE_MST_NO: int
-    PERSON_GOAL_NM: str
+    CHALLENGE_USER_NO: int
+    PERSON_NM: str
 
 
 class GetPersonGoal(BaseModel):
-    PERSON_GOAL_NO: int
-    PERSON_GOAL_NM: str
+    PERSON_NO: int
+    PERSON_NM: str
     IS_DONE: bool
 
 
 class UpdatePersonGoal(BaseModel):
-    PERSON_GOAL_NO: int
-    PERSON_GOAL_NM: str
+    PERSON_NO: int
+    PERSON_NM: str
     IS_DONE: bool
 
 
-class DeletePersonGoal(BaseModel):
-    PERSON_GOAL_NO: int
+class CompletePersonGoal(BaseModel):
+    PERSON_NO: int
+    IS_DONE: bool
 
 
 class CompleteDailyGoal(BaseModel):
