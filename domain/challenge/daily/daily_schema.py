@@ -18,12 +18,7 @@ class UpdatePersonGoal(BaseModel):
     IS_DONE: bool
 
 
-class CompletePersonGoal(BaseModel):
-    PERSON_NO: int
-    IS_DONE: bool
-
-
-class CompleteDailyGoal(BaseModel):
-    AUTH_IMAGE_FILE_NM: str
+class CompleteDailyGoalAll(BaseModel):
     CHALLENGE_USER_NO: int
+    IMAGE_FILE_NM: str
     COMMENTS: str
