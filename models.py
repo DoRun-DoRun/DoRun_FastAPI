@@ -146,7 +146,7 @@ class PersonDailyGoal(Base):
 
     PERSON_NO = Column(Integer, primary_key=True)
     PERSON_NM = Column(String)
-    IS_DONE = Column(Boolean)
+    IS_DONE = Column(Boolean, default=False)
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     UPDATE_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
