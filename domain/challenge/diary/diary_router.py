@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
+from domain.challenge.diary import diary_crud
 from domain.user.user_crud import get_current_user
 from models import User, DailyCompleteUser, PersonDailyGoalComplete, ChallengeUser
 
@@ -14,10 +15,7 @@ router = APIRouter(
 @router.post("/{daily_complete_no}")
 def post_emoji(daily_complete_no: int, emoji: str, db: Session = Depends(get_db),
                current_user: User = Depends(get_current_user)):
-    diary = db.query(PersonDailyGoalComplete).filter_by(DAILY_COMPLETE_NO=daily_complete_no).first()
-
-    if not diary:
-        raise HTTPException(status_code=404, detail="Diary를 찾을 수 없습니다")
+    diary = diary_crud.get_diary(db, daily_complete_no)
 
     challenge_user = db.query(ChallengeUser).filter_by(
         CHALLENGE_USER_NO=diary.CHALLENGE_USER_NO,
@@ -34,10 +32,6 @@ def post_emoji(daily_complete_no: int, emoji: str, db: Session = Depends(get_db)
 
 @router.get("/{daily_complete_no}")
 def get_diary(daily_complete_no: int, db: Session = Depends(get_db)):
-    diary = db.query(PersonDailyGoalComplete).filter(
-        daily_complete_no == PersonDailyGoalComplete.DAILY_COMPLETE_NO).first()
-
-    if not diary:
-        raise HTTPException(status_code=404, detail="Diary를 찾을 수 없습니다")
+    diary = diary_crud.get_diary(db, daily_complete_no)
 
     return diary

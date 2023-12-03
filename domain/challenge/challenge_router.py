@@ -73,8 +73,8 @@ def get_challenge_user_list(db: Session = Depends(get_db), current_user: User = 
 
 
 @router.get("/user/{challenge_user_no}", response_model=challenge_schema.GetChallengeUserDetail)
-def get_challenge_user_detail(challenge_user_no: int, current_day: date, db: Session = Depends(get_db)):
-    challenge_user_detail = challenge_crud.get_challenge_user_detail(db, challenge_user_no, current_day)
+def get_challenge_user_detail(challenge_user_no: int, db: Session = Depends(get_db)):
+    challenge_user_detail = challenge_crud.get_challenge_user_detail(db, challenge_user_no)
 
     return challenge_user_detail
 

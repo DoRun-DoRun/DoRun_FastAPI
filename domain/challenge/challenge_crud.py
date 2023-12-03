@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticipant, \
     PersonDailyGoalPydantic, \
     TeamWeeklyGoalPydantic, AdditionalGoalPydantic, ChallengeList, ChallengeInvite, \
-    ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser
+    ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser, DiaryPydantic
 from domain.desc.utils import calculate_challenge_progress
 from domain.user.user_crud import get_user_by_uid, get_equipped_avatar
 from models import ChallengeMaster, User, TeamWeeklyGoal, ChallengeUser, PersonDailyGoal, AdditionalGoal, ItemUser, \
@@ -336,6 +336,9 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
 
 def get_challenge_user_list(db: Session, current_user: User):
     challenges = get_challenge_masters_by_user(db, current_user)
+
+    twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
+
     challenge_lists = []
     # ChallengeUserList 정보 조회
     for challenge in challenges:
@@ -351,11 +354,17 @@ def get_challenge_user_list(db: Session, current_user: User):
 
             pet = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.PET)
 
+            diaries = db.query(PersonDailyGoalComplete).filter(
+                PersonDailyGoalComplete.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
+                PersonDailyGoalComplete.INSERT_DT >= twenty_four_hours_ago
+            ).all()
+
             challenge_user_list = ChallengeUserList(
                 CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
                 PROGRESS=calculate_user_progress(db, challenge_user.CHALLENGE_USER_NO),
                 CHARACTER_NO=character.AVATAR_NO,
-                PET_NO=pet.AVATAR_NO if pet else None
+                PET_NO=pet.AVATAR_NO if pet else None,
+                DIARIES=[DiaryPydantic.model_validate(diary) for diary in diaries]
             )
             challenge_user_lists.append(challenge_user_list)
 
@@ -368,11 +377,10 @@ def get_challenge_user_list(db: Session, current_user: User):
     return challenge_lists
 
 
-def get_challenge_user_detail(db: Session, challenge_user_no: int, current_day: date):
+def get_challenge_user_detail(db: Session, challenge_user_no: int):
     challenge_user = get_challenge_user_by_challenge_user_no(db, challenge_user_no)
     user = db.query(User).filter(User.USER_NO == challenge_user.USER_NO).first()
     character = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.CHARACTER)
-    person_goal = get_person_goal_by_user(db, challenge_user_no, current_day)
 
     return GetChallengeUserDetail(
         CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
@@ -380,7 +388,6 @@ def get_challenge_user_detail(db: Session, challenge_user_no: int, current_day: 
         CHARACTER_NO=character.AVATAR_NO,
         PROGRESS=calculate_user_progress(db, challenge_user_no),
         COMMENT=challenge_user.COMMENT,
-        personGoal=person_goal
     )
 
 

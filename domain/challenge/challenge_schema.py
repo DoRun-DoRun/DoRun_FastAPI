@@ -12,11 +12,22 @@ class ChallengeParticipant(BaseModel):
     ACCEPT_STATUS: InviteAcceptType
 
 
+class DiaryPydantic(BaseModel):
+    DAILY_COMPLETE_NO: int
+    IMAGE_FILE_NM: str
+    INSERT_DT: datetime
+    COMMENTS: str
+
+    class Config:
+        from_attributes = True
+
+
 class ChallengeUserList(BaseModel):
     CHALLENGE_USER_NO: int
     PROGRESS: float
     CHARACTER_NO: int
     PET_NO: Optional[int]
+    DIARIES: Optional[list[DiaryPydantic]]
 
     class Config:
         from_attributes = True
@@ -82,7 +93,6 @@ class AdditionalGoalPydantic(BaseModel):
 
 class ChallengeDetail(BaseModel):
     CHALLENGE_USER_NO: int
-    personGoal: List[PersonDailyGoalPydantic]
     teamGoal: List[TeamWeeklyGoalPydantic]
     additionalGoal: List[AdditionalGoalPydantic]
 
@@ -113,7 +123,6 @@ class GetChallengeUserDetail(BaseModel):
     CHARACTER_NO: int
     PROGRESS: float
     COMMENT: str
-    personGoal: List[PersonDailyGoalPydantic]
 
 
 class EmojiUser(BaseModel):
