@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from starlette import status
 
 from database import get_db
-from domain.challenge.challenge_crud import get_challenge_master_by_id, get_challenge_user_by_challenge_user_no
+from domain.challenge.challenge_crud import get_challenge_user_by_challenge_user_no
 from domain.challenge.daily import daily_schema, daily_crud
 from domain.user.user_router import get_current_user
 from models import User
