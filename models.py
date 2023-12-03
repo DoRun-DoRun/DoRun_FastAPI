@@ -107,7 +107,8 @@ class ChallengeMaster(Base):
     START_DT = Column(Date)
     END_DT = Column(Date)
     HEADER_EMOJI = Column(String)
-    CHALLENGE_STATUS = Column(Enum(ChallengeStatusType, name='ChallengeStatusType'))
+    CHALLENGE_STATUS = Column(Enum(ChallengeStatusType, name='ChallengeStatusType'),
+                              default=ChallengeStatusType.PENDING)
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

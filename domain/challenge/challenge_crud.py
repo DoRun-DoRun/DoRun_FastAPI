@@ -9,22 +9,24 @@ from sqlalchemy.orm import Session
 from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticipant, \
     PersonDailyGoalPydantic, \
     TeamWeeklyGoalPydantic, AdditionalGoalPydantic, ChallengeList, ChallengeInvite, \
-    ChallengeUserList, GetChallengeUserDetail
+    ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser
 from domain.desc.utils import calculate_challenge_progress
 from domain.user.user_crud import get_user_by_uid
 from models import ChallengeMaster, User, TeamWeeklyGoal, ChallengeUser, PersonDailyGoal, AdditionalGoal, ItemUser, \
-    Item, InviteAcceptType, Avatar, AvatarUser, PersonDailyGoalComplete, AvatarType
+    Item, InviteAcceptType, Avatar, AvatarUser, PersonDailyGoalComplete, AvatarType, ChallengeStatusType, \
+    DailyCompleteUser
 
 
 # 기능 함수
-# Challenge Master을 Current User으로 가져오기
+# 진행중인 Challenge Master을 Current User으로 가져오기
 def get_challenge_masters_by_user(db: Session, current_user: User) -> ChallengeMaster:
     challenges = db.query(ChallengeMaster). \
         join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO). \
-        filter(ChallengeUser.USER_NO == current_user.USER_NO).all()
+        filter(ChallengeUser.USER_NO == current_user.USER_NO,
+               ChallengeMaster.CHALLENGE_STATUS != ChallengeStatusType.COMPLETE).all()
 
     if not challenges:
-        raise HTTPException(status_code=404, detail="챌린지를 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail="진행 중인 챌린지를 찾을 수 없습니다.")
 
     return challenges
 
@@ -133,6 +135,18 @@ def get_challenge_user_by_user_no(db: Session, challenge_mst_no, user_no):
     return challenge_user
 
 
+# 해당 날짜의 Challenge User객체들의 정보를 user_no로 가져오기
+def get_challenge_users_by_user_no(db: Session, user_no):
+    challenge_user = db.query(ChallengeUser).filter(
+        ChallengeUser.USER_NO == user_no,
+    ).all()
+
+    if not challenge_user:
+        raise HTTPException(status_code=404, detail="사용자에 대한 challenge_user를 찾을 수 없습니다.")
+
+    return challenge_user
+
+
 # Challenge User 객체들의 정보를 challenge mst no로 가져오기
 def get_challenge_users_by_mst_no(db: Session, challenge_mst_no):
     challenge_users = db.query(ChallengeUser).filter(
@@ -154,6 +168,19 @@ def get_person_goal_by_user(db: Session, challenge_user_no: int, current_day: da
     ).all()
 
     return person_goals
+
+
+# 해당 날짜의 사용자 team weekly goal 객체들을 가져오기
+def get_team_weekly_goal_by_user(db: Session, challenge_mst_no: int, current_day: date):
+    team_goals = db.query(TeamWeeklyGoal).join(
+        ChallengeUser,
+    ).filter(
+        ChallengeUser.CHALLENGE_MST_NO == challenge_mst_no,
+        TeamWeeklyGoal.START_DT <= current_day,  # 현재 시간 이후로 시작하는 것을 포함
+        TeamWeeklyGoal.END_DT >= current_day  # 현재 시간 이전에 종료하는 것을 배제
+    ).all()
+
+    return team_goals
 
 
 # 착용중인 아바타 가져오기
@@ -180,12 +207,26 @@ def get_challenge_user_by_challenge_user_no(db: Session, challenge_user_no: int)
     return challenge_user
 
 
+# 지정된 날짜에 활성화된 챌린지 중, 특정 유저가 참여하고 있는 챌린지 조회
+def get_active_challenges_for_user(db: Session, user_no: int, specified_date: date):
+    user_challenges = db.query(ChallengeMaster).join(
+        ChallengeUser,
+        ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO
+    ).filter(
+        ChallengeUser.USER_NO == user_no,
+        ChallengeMaster.START_DT <= specified_date,
+        ChallengeMaster.END_DT >= specified_date
+    ).all()
+
+    if not user_challenges:
+        raise HTTPException(status_code=404, detail="해당 날짜에 챌린지 기록이 존재하지 않습니다.")
+
+    return user_challenges
+
+
 # 라우터 함수
 def get_challenge_list(db: Session, current_user: User):
     challenges = get_challenge_masters_by_user(db, current_user)
-
-    if not challenges:
-        return []
 
     challenge_list = []
     for challenge in challenges:
@@ -206,14 +247,7 @@ def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int, curre
     current_utc_time = datetime.utcnow()
 
     # TeamWeeklyGoal 목록 검색 및 필터링
-    team_goals = db.query(TeamWeeklyGoal).join(
-        ChallengeUser,
-        ChallengeUser.CHALLENGE_USER_NO == TeamWeeklyGoal.CHALLENGE_USER_NO
-    ).filter(
-        ChallengeUser.CHALLENGE_MST_NO == challenge_mst_no,
-        TeamWeeklyGoal.START_DT <= current_utc_time,  # 현재 시간 이후로 시작하는 것을 포함
-        TeamWeeklyGoal.END_DT >= current_utc_time  # 현재 시간 이전에 종료하는 것을 배제
-    ).all()
+    team_goals = get_team_weekly_goal_by_user(db, challenge_mst_no, current_day)
 
     if not team_goals:
         raise HTTPException(status_code=404, detail="팀 목표를 찾을 수 없습니다.")
@@ -273,7 +307,6 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
         START_DT=challenge_create.START_DT,
         END_DT=challenge_create.END_DT,
         HEADER_EMOJI=challenge_create.HEADER_EMOJI,
-        CHALLENGE_STATUS=challenge_create.CHALLENGE_STATUS,
     )
     db.add(db_challenge)
 
@@ -315,29 +348,38 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
     return db_challenge
 
 
-def get_challenge_user_list(db: Session, challenge_mst_no: int):
+def get_challenge_user_list(db: Session, current_user: User):
+    challenges = get_challenge_masters_by_user(db, current_user)
+    challenge_lists = []
     # ChallengeUserList 정보 조회
-    challenge_users = get_challenge_users_by_mst_no(db, challenge_mst_no)
+    for challenge in challenges:
+        challenge_users = get_challenge_users_by_mst_no(db, challenge.CHALLENGE_MST_NO)
 
-    challenge_user_lists = []
-    for challenge_user in challenge_users:
-        # 각 사용자별로 Character 및 Pet 정보 조회
-        character = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.CHARACTER)
+        challenge_user_lists = []
+        for challenge_user in challenge_users:
+            # 각 사용자별로 Character 및 Pet 정보 조회
+            character = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.CHARACTER)
 
-        if not character:
-            raise HTTPException(status_code=404, detail="캐릭터 정보를 찾을 수 없습니다.")
+            if not character:
+                raise HTTPException(status_code=404, detail="캐릭터 정보를 찾을 수 없습니다.")
 
-        pet = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.PET)
+            pet = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.PET)
 
-        challenge_user_list = ChallengeUserList(
-            CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
-            PROGRESS=calculate_user_progress(db, challenge_user.CHALLENGE_USER_NO),
-            CHARACTER_NO=character.AVATAR_NO,
-            PET_NO=pet.AVATAR_NO if pet else None
+            challenge_user_list = ChallengeUserList(
+                CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
+                PROGRESS=calculate_user_progress(db, challenge_user.CHALLENGE_USER_NO),
+                CHARACTER_NO=character.AVATAR_NO,
+                PET_NO=pet.AVATAR_NO if pet else None
+            )
+            challenge_user_lists.append(challenge_user_list)
+
+        challenge_lists.append(ChallengeUserListModel(
+            CHALLENGE_MST_NO=challenge.CHALLENGE_MST_NO,
+            CHALLENGE_MST_NM=challenge.CHALLENGE_MST_NM,
+            challenge_user=challenge_user_lists)
         )
-        challenge_user_lists.append(challenge_user_list)
 
-    return challenge_user_lists
+    return challenge_lists
 
 
 def get_challenge_user_detail(db: Session, challenge_user_no: int, current_day: date):
@@ -355,5 +397,76 @@ def get_challenge_user_detail(db: Session, challenge_user_no: int, current_day: 
         personGoal=person_goal
     )
 
-# def get_challenge_history_list(db: Session, current_day: date, _current_user: User):
-#     return GetChallengeUserDetail()
+
+def get_challenge_history_list(db: Session, current_day: date, _current_user: User):
+    challenges = get_active_challenges_for_user(db, _current_user.USER_NO, current_day)
+
+    challenge_history_list = []
+    for challenge in challenges:
+        challenge_user = get_challenge_user_by_user_no(db, challenge.CHALLENGE_MST_NO, _current_user.USER_NO)
+        daily_complete = db.query(PersonDailyGoalComplete).filter(
+            PersonDailyGoalComplete.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
+            func.date(PersonDailyGoalComplete.INSERT_DT) == current_day
+        ).first()
+        daily_complete_users_list = []
+        image_file = ''
+        comment = ''
+
+        if daily_complete:
+            image_file = daily_complete.IMAGE_FILE_NM
+            comment = daily_complete.COMMENT
+            daily_complete_users = db.query(DailyCompleteUser).filter(
+                DailyCompleteUser.DAILY_COMPLETE_NO == daily_complete.DAILY_COMPLETE_NO,
+            ).all()
+            for daily_complete_user in daily_complete_users:
+                daily_complete_users_list.append(
+                    EmojiUser(CHALLENGE_USER_NO=daily_complete_user.CHALLENGE_USER_NO, EMOJI=daily_complete_user.EMOJI))
+
+        person_goal = get_person_goal_by_user(db, challenge_user.CHALLENGE_USER_NO, current_day)
+        team_goals = get_team_weekly_goal_by_user(db, challenge_user.CHALLENGE_MST_NO, current_day)
+
+        challenge_history_list.append(GetChallengeHistory(
+            CHALLENGE_MST_NO=challenge_user.CHALLENGE_MST_NO,
+            CHALLENGE_MST_NM=get_challenge_master_by_id(db, challenge_user.CHALLENGE_MST_NO).CHALLENGE_MST_NM,
+            IMAGE_FILE_NM=image_file,
+            EMOJI=daily_complete_users_list,
+            COMMENT=comment,
+            personGoal=person_goal,
+            teamGoal=[TeamWeeklyGoalPydantic.model_validate(team_goal) for team_goal in team_goals])
+        )
+
+    return challenge_history_list
+
+
+# UID 정보를 가져와 CHALLENGE USER 업데이트 필요
+def challenge_update(db: Session, challenge_mst_no: int, _challenge_update: ChallengeCreate, current_user: User):
+    challenge = get_challenge_master_by_id(db, challenge_mst_no)
+    challenge_user = get_challenge_user_by_user_no(db, challenge_mst_no, current_user.USER_NO)
+
+    if not challenge_user.IS_OWNER:
+        raise HTTPException(status_code=401, detail="수정 권한이 존재하지 않습니다.")
+
+    # 챌린지 정보 업데이트
+    challenge.CHALLENGE_MST_NM = _challenge_update.CHALLENGE_MST_NM
+    challenge.START_DT = _challenge_update.START_DT
+    challenge.END_DT = _challenge_update.END_DT
+    challenge.HEADER_EMOJI = _challenge_update.HEADER_EMOJI
+    challenge.INSERT_DT = _challenge_update.INSERT_DT
+
+    db.commit()
+
+    return {"message": "챌린지가 성공적으로 업데이트 되었습니다."}
+
+
+# 삭제 시, 기존 챌린지 조회에 대한 예외처리 필요
+def challenge_delete(db: Session, challenge_mst_no: int, current_user: User):
+    challenge = get_challenge_master_by_id(db, challenge_mst_no)
+    challenge_user = get_challenge_user_by_user_no(db, challenge_mst_no, current_user.USER_NO)
+
+    if not challenge_user.IS_OWNER:
+        raise HTTPException(status_code=401, detail="삭제 권한이 존재하지 않습니다.")
+
+    challenge.DELETE_YN = True
+    challenge.DELETE_DT = datetime.utcnow()
+
+    return {"message": "챌린지가 성공적으로 삭제 되었습니다."}
