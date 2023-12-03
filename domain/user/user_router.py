@@ -14,7 +14,7 @@ from models import User, AvatarUser, Avatar, UserSetting, SignType
 
 router = APIRouter(
     prefix="/user",
-    tags=["user"]
+    tags=["User"]
 )
 
 

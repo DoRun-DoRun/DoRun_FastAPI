@@ -9,7 +9,7 @@ from models import User, Friend, InviteAcceptType
 
 router = APIRouter(
     prefix="/friend",
-    tags=["friend"]
+    tags=["Friend"]
 )
 
 
