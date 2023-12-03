@@ -8,12 +8,13 @@ from sqlalchemy.orm import Session
 from database import get_db
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import encode_token, get_current_user
-from domain.user.user_schema import CreateUser, UpdateUser, GetUser, UpdateUserResponse
-from models import User
+from domain.user.user_schema import CreateUser, UpdateUser, GetUser, UpdateUserResponse, GetUserSetting, \
+    UpdateUserSetting
+from models import User, AvatarUser, Avatar, UserSetting, SignType
 
 router = APIRouter(
     prefix="/user",
-    tags=["user"]
+    tags=["User"]
 )
 
 
@@ -103,3 +104,61 @@ def delete_user(db: Session = Depends(get_db), current_user: User = Depends(get_
         "USER_UID": current_user.UID,
         "message": "삭제 성공"
     }
+
+
+@router.get("/search/{uid}")
+def search_user(uid: int, db: Session = Depends(get_db)):
+    user = user_crud.get_user_by_uid(db, uid)
+
+    return user
+
+
+@router.get("/avatar")
+def get_avatars(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    avatars = db.query(AvatarUser).filter(
+        AvatarUser.USER_NO == current_user.USER_NO,
+    ).all()
+
+    return avatars
+
+
+@router.put("/avatar")
+def set_equipped_avatar(avatar_user_no: int, db: Session = Depends(get_db),
+                        current_user: User = Depends(get_current_user)):
+    avatar_user = db.query(AvatarUser).filter(
+        AvatarUser.AVATAR_USER_NO == avatar_user_no).first()
+    avatar = db.query(Avatar).filter(Avatar.AVATAR_NO == avatar_user.AVATAR_NO).first()
+    equipped_avatar = user_crud.get_equipped_avatar(db, current_user.USER_NO, avatar.AVATAR_TYPE)
+
+    avatar_user.IS_EQUIP = True
+    equipped_avatar.IS_EQUIP = False
+    db.commit()
+
+    return {"message": "착용된 아바타 변경 성공"}
+
+
+@router.get("/setting", response_model=GetUserSetting)
+def get_user_setting(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user_setting = db.query(UserSetting).filter(UserSetting.USER_NO == current_user.USER_NO).first()
+
+    return GetUserSetting(
+        NOTICE_PUSH_YN=user_setting.NOTICE_PUSH_YN,
+        NOTICE_PUSH_NIGHT_YN=user_setting.NOTICE_PUSH_NIGHT_YN,
+        NOTICE_PUSH_AD_YN=user_setting.NOTICE_PUSH_AD_YN,
+        SIGN_TYPE=current_user.SIGN_TYPE,
+        UID=current_user.UID,
+    )
+
+
+@router.put("/setting")
+def get_user_setting(user_setting_data: UpdateUserSetting, db: Session = Depends(get_db),
+                     current_user: User = Depends(get_current_user)):
+    user_setting = db.query(UserSetting).filter(UserSetting.USER_NO == current_user.USER_NO).first()
+
+    user_setting.NOTICE_PUSH_YN = user_setting_data.NOTICE_PUSH_YN
+    user_setting.NOTICE_PUSH_AD_YN = user_setting_data.NOTICE_PUSH_AD_YN
+    user_setting.NOTICE_PUSH_NIGHT_YN = user_setting_data.NOTICE_PUSH_NIGHT_YN
+
+    db.commit()
+
+    return {"message": "유저 설정 변경 성공"}

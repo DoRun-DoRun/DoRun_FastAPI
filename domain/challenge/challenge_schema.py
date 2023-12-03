@@ -22,6 +22,12 @@ class ChallengeUserList(BaseModel):
         from_attributes = True
 
 
+class ChallengeUserListModel(BaseModel):
+    CHALLENGE_MST_NO: int
+    CHALLENGE_MST_NM: str
+    challenge_user: list[ChallengeUserList]
+
+
 class ChallengeMST(BaseModel):
     CHALLENGE_MST_NO: int
     CHALLENGE_MST_NM: str
@@ -88,7 +94,6 @@ class ChallengeCreate(BaseModel):
     END_DT: date
     HEADER_EMOJI: str
     INSERT_DT: datetime
-    CHALLENGE_STATUS: ChallengeStatusType
 
     # @validator('*', pre=True)
     # def not_empty(cls, value: Any, field) -> Any:
@@ -120,7 +125,7 @@ class GetChallengeHistory(BaseModel):
     CHALLENGE_MST_NO: int
     CHALLENGE_MST_NM: str
     IMAGE_FILE_NM: Optional[str]
-    EMOJI: List[EmojiUser]
-    COMMENT: str
-    personGoal: List[PersonDailyGoalPydantic]
-    teamGoal: TeamWeeklyGoalPydantic
+    EMOJI: Optional[List[EmojiUser]]
+    COMMENT: Optional[str]
+    personGoal: Optional[List[PersonDailyGoalPydantic]]
+    teamGoal: Optional[List[TeamWeeklyGoalPydantic]]

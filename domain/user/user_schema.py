@@ -48,3 +48,17 @@ class GetUser(BaseModel):
     COMPLETE: int
     PROGRESS: int
     PENDING: int
+
+
+class GetUserSetting(BaseModel):
+    NOTICE_PUSH_YN: bool
+    NOTICE_PUSH_NIGHT_YN: bool
+    NOTICE_PUSH_AD_YN: bool
+    SIGN_TYPE: SignType
+    UID: int
+
+
+class UpdateUserSetting(BaseModel):
+    NOTICE_PUSH_YN: bool
+    NOTICE_PUSH_NIGHT_YN: bool
+    NOTICE_PUSH_AD_YN: bool
