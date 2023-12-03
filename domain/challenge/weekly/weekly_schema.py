@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
 
-class CompleteWeeklyGoal(BaseModel):
-    CHALLENGE_MST_NO: int
-
+class UpdateWeeklyGoal(BaseModel):
+    TEAM_NO: int
+    TEAM_NM: str
+    IS_DONE: bool
