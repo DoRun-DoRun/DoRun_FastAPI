@@ -107,7 +107,8 @@ class ChallengeMaster(Base):
     START_DT = Column(Date)
     END_DT = Column(Date)
     HEADER_EMOJI = Column(String)
-    CHALLENGE_STATUS = Column(Enum(ChallengeStatusType, name='ChallengeStatusType'))
+    CHALLENGE_STATUS = Column(Enum(ChallengeStatusType, name='ChallengeStatusType'),
+                              default=ChallengeStatusType.PENDING)
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -123,6 +124,7 @@ class ChallengeUser(Base):
 
     CHALLENGE_USER_NO = Column(Integer, primary_key=True)
     ACCEPT_STATUS = Column(Enum(InviteAcceptType, name="InviteAcceptType"))
+    COMMENT = Column(String, default="상태메시지를 설정해주세요")
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
