@@ -11,9 +11,9 @@ from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticip
     TeamWeeklyGoalPydantic, AdditionalGoalPydantic, ChallengeList, ChallengeInvite, \
     ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser
 from domain.desc.utils import calculate_challenge_progress
-from domain.user.user_crud import get_user_by_uid
+from domain.user.user_crud import get_user_by_uid, get_equipped_avatar
 from models import ChallengeMaster, User, TeamWeeklyGoal, ChallengeUser, PersonDailyGoal, AdditionalGoal, ItemUser, \
-    Item, InviteAcceptType, Avatar, AvatarUser, PersonDailyGoalComplete, AvatarType, ChallengeStatusType, \
+    Item, InviteAcceptType, PersonDailyGoalComplete, AvatarType, ChallengeStatusType, \
     DailyCompleteUser
 
 
@@ -181,20 +181,6 @@ def get_team_weekly_goal_by_user(db: Session, challenge_mst_no: int, current_day
     ).all()
 
     return team_goals
-
-
-# 착용중인 아바타 가져오기
-def get_equipped_avatar(db: Session, user_no: int, avatar_type: AvatarType):
-    avatar = db.query(AvatarUser).join(Avatar, Avatar.AVATAR_NO == AvatarUser.AVATAR_NO).filter(
-        AvatarUser.USER_NO == user_no,
-        AvatarUser.IS_EQUIP == True,
-        Avatar.AVATAR_TYPE == avatar_type
-    ).first()
-
-    if avatar_type == AvatarType.CHARACTER and not avatar:
-        raise HTTPException(status_code=404, detail="CHARACTER 정보를 찾을 수 없습니다.")
-
-    return avatar
 
 
 # challenge_user 객체를 challenge_user_no 값으로 가져오기

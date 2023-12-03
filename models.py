@@ -25,7 +25,7 @@ class InviteAcceptType(enum.Enum):
     PENDING = 'PENDING'
     ACCEPTED = 'ACCEPTED'
     DECLINED = 'DECLINED'
-    BLOCKED = 'BLOCKED'
+    DELETED = 'DELETED'
 
 
 class ItemType(enum.Enum):
@@ -63,11 +63,13 @@ class UserSetting(Base):
 
     USER_SETTING_NO = Column(Integer, primary_key=True)
     AGREE_POLICY_YN = Column(Boolean, default=False)
-    AGREE_POLICY_DT = Column(DateTime)
+    AGREE_POLICY_DT = Column(DateTime, onupdate=datetime.utcnow)
     NOTICE_PUSH_YN = Column(Boolean, default=False)
-    NOTICE_PUSH_DT = Column(DateTime)
+    NOTICE_PUSH_DT = Column(DateTime, onupdate=datetime.utcnow)
+    NOTICE_PUSH_AD_YN = Column(Boolean, default=False)
+    NOTICE_PUSH_AD_DT = Column(DateTime, onupdate=datetime.utcnow)
     NOTICE_PUSH_NIGHT_YN = Column(Boolean, default=False)
-    NOTICE_PUSH_NIGHT_DT = Column(DateTime)
+    NOTICE_PUSH_NIGHT_DT = Column(DateTime, onupdate=datetime.utcnow)
     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
 
 
@@ -77,9 +79,9 @@ class Friend(Base):
     FRIEND_NO = Column(Integer, primary_key=True)
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     ACCEPT_DT = Column(DateTime)
-    ACCEPT_STATUS = Column(Enum(InviteAcceptType), name='InviteAcceptType')
-    SENDER_UID = Column(Integer, ForeignKey('user.USER_NO'))
-    RECIPIENT_UID = Column(Integer, ForeignKey('user.USER_NO'))
+    ACCEPT_STATUS = Column(Enum(InviteAcceptType), name='InviteAcceptType', default=InviteAcceptType.PENDING)
+    SENDER_NO = Column(Integer, ForeignKey('user.USER_NO'))
+    RECIPIENT_NO = Column(Integer, ForeignKey('user.USER_NO'))
 
 
 class Avatar(Base):
@@ -123,7 +125,7 @@ class ChallengeUser(Base):
     __tablename__ = 'challenge_users'
 
     CHALLENGE_USER_NO = Column(Integer, primary_key=True)
-    ACCEPT_STATUS = Column(Enum(InviteAcceptType, name="InviteAcceptType"))
+    ACCEPT_STATUS = Column(Enum(InviteAcceptType, name="InviteAcceptType", default=InviteAcceptType.PENDING))
     COMMENT = Column(String, default="상태메시지를 설정해주세요")
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
