@@ -27,7 +27,7 @@ class ChallengeUserList(BaseModel):
     PROGRESS: float
     CHARACTER_NO: int
     PET_NO: Optional[int]
-    DIARIES: Optional[list[DiaryPydantic]]
+    DIARIES: Optional[List[DiaryPydantic]]
 
     class Config:
         from_attributes = True
@@ -36,7 +36,7 @@ class ChallengeUserList(BaseModel):
 class ChallengeUserListModel(BaseModel):
     CHALLENGE_MST_NO: int
     CHALLENGE_MST_NM: str
-    challenge_user: list[ChallengeUserList]
+    challenge_user: List[ChallengeUserList]
 
 
 class ChallengeMST(BaseModel):

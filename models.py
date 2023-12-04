@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum, ForeignKey, Date, Sequence
 from sqlalchemy.orm import relationship
@@ -179,9 +179,9 @@ class AdditionalGoal(Base):
 
     ADDITIONAL_NO = Column(Integer, primary_key=True)
     ADDITIONAL_NM = Column(String)
-    IS_DONE = Column(Boolean)
-    START_DT = Column(DateTime)
-    END_DT = Column(DateTime)
+    IS_DONE = Column(Boolean, default=False)
+    START_DT = Column(DateTime, default=datetime.utcnow)
+    END_DT = Column(DateTime, default=datetime.utcnow() + timedelta(hours=24))
     IMAGE_FILE_NM = Column(String)
 
     CHALLENGE_USER = relationship('ChallengeUser', backref="additional_goal")
