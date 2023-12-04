@@ -237,8 +237,10 @@ class ItemLog(Base):
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
 
     # ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
-    SENDER_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
-    RECIPIENT_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+    SENDER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+    RECIPIENT_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
 
-    sender = relationship('ChallengeUser', foreign_keys=[SENDER_UID])
-    recipient = relationship('ChallengeUser', foreign_keys=[RECIPIENT_UID])
+    ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
+
+    sender = relationship('ChallengeUser', foreign_keys=[SENDER_NO])
+    recipient = relationship('ChallengeUser', foreign_keys=[RECIPIENT_NO])

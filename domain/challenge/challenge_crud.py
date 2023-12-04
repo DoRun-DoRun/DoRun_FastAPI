@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticipant, \
     PersonDailyGoalPydantic, \
     TeamWeeklyGoalPydantic, AdditionalGoalPydantic, ChallengeList, ChallengeInvite, \
-    ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser, DiaryPydantic
+    ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser, DiaryPydantic, \
+    ItemPydantic
 from domain.desc.utils import calculate_challenge_progress
 from domain.user.user_crud import get_user_by_uid, get_equipped_avatar
 from models import ChallengeMaster, User, TeamWeeklyGoal, ChallengeUser, PersonDailyGoal, AdditionalGoal, ItemUser, \
@@ -364,7 +365,7 @@ def get_challenge_user_list(db: Session, current_user: User):
                 PROGRESS=calculate_user_progress(db, challenge_user.CHALLENGE_USER_NO),
                 CHARACTER_NO=character.AVATAR_NO,
                 PET_NO=pet.AVATAR_NO if pet else None,
-                DIARIES=[DiaryPydantic.model_validate(diary) for diary in diaries]
+                DIARIES=[DiaryPydantic.model_validate(diary) for diary in diaries],
             )
             challenge_user_lists.append(challenge_user_list)
 
@@ -381,6 +382,14 @@ def get_challenge_user_detail(db: Session, challenge_user_no: int):
     challenge_user = get_challenge_user_by_challenge_user_no(db, challenge_user_no)
     user = db.query(User).filter(User.USER_NO == challenge_user.USER_NO).first()
     character = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.CHARACTER)
+    items = db.query(Item).all()
+    item_list = []
+    for item in items:
+        item_user = db.query(ItemUser).filter(
+            ItemUser.CHALLENGE_USER_NO == challenge_user_no,
+            ItemUser.ITEM_NO == item.ITEM_NO).first()
+        item_list.append(ItemPydantic(ITEM_NO=item.ITEM_NO, ITEM_NM=item.ITEM_NM, COUNT=item_user.COUNT,
+                                      ITEM_USER_NO=item_user.ITEM_USER_NO))
 
     return GetChallengeUserDetail(
         CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
@@ -388,6 +397,7 @@ def get_challenge_user_detail(db: Session, challenge_user_no: int):
         CHARACTER_NO=character.AVATAR_NO,
         PROGRESS=calculate_user_progress(db, challenge_user_no),
         COMMENT=challenge_user.COMMENT,
+        ITEM=item_list
     )
 
 

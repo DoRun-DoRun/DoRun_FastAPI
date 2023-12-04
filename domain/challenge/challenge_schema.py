@@ -3,7 +3,7 @@ from datetime import datetime, date
 from pydantic import BaseModel
 from typing import List, Optional
 
-from models import ChallengeStatusType, InviteAcceptType
+from models import ChallengeStatusType, InviteAcceptType, ItemType
 
 
 class ChallengeParticipant(BaseModel):
@@ -20,6 +20,13 @@ class DiaryPydantic(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ItemPydantic(BaseModel):
+    ITEM_NO: int
+    ITEM_NM: ItemType
+    ITEM_USER_NO:int
+    COUNT: int
 
 
 class ChallengeUserList(BaseModel):
@@ -123,6 +130,7 @@ class GetChallengeUserDetail(BaseModel):
     CHARACTER_NO: int
     PROGRESS: float
     COMMENT: str
+    ITEM: List[ItemPydantic]
 
 
 class EmojiUser(BaseModel):

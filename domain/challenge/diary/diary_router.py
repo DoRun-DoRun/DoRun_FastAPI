@@ -66,7 +66,7 @@ def create_diary(_create_diary: CreateDiary, db: Session = Depends(get_db),
             IS_DONE=person_goal.IS_DONE,
             CHALLENGE_USER=challenge_user
         )
-        # db.add(db_person_goal)
+        db.add(db_person_goal)
 
     # 아바타 5%, 아이템 45%, 꽝 50%
     select_item_type = select_randomly_with_probability()
