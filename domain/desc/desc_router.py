@@ -9,7 +9,7 @@ from models import User
 
 router = APIRouter(
     prefix="/desc",
-    tags=["desc"]
+    tags=["Desc"]
 )
 
 

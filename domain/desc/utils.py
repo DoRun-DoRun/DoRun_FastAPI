@@ -1,5 +1,10 @@
+import enum
 from datetime import datetime
 import random
+
+from sqlalchemy import not_
+
+from models import Item, AvatarUser, Avatar
 
 
 def calculate_challenge_progress(start_dt, end_dt):
@@ -29,3 +34,45 @@ def random_user():
     noun = random.choice(beans)
     username = adjective + " " + noun
     return username
+
+
+class RewardType(enum.Enum):
+    AVATAR = "Avatar"
+    ITEM = "Item"
+    NOTHING = "Nothing"
+
+
+def select_randomly_with_probability():
+    choices = list(RewardType)
+    probabilities = [50, 45, 5]
+    selected = random.choices(choices, weights=probabilities, k=1)[0]
+
+    return selected
+
+
+def get_random_item(db_session):
+    # Item 테이블에서 모든 요소 가져오기
+    items = db_session.query(Item).all()
+
+    if not items:
+        return None  # 아이템이 없는 경우
+
+    # 무작위로 하나의 아이템 선택
+    random_item = random.choice(items)
+    return random_item
+
+
+def get_random_avatar_not_owned_by_user(db_session, user_no):
+    # 유저가 소유한 악세사리의 목록을 가져옴
+    owned_avatars = db_session.query(AvatarUser.AVATAR_NO).filter(AvatarUser.USER_NO == user_no).all()
+    owned_avatars_ids = [avatar.AVATAR_NO for avatar in owned_avatars]
+
+    # 유저가 소유하지 않은 악세사리를 찾음
+    available_avatars = db_session.query(Avatar).filter(not_(Avatar.AVATAR_NO.in_(owned_avatars_ids))).all()
+
+    if not available_avatars:
+        return None  # 사용자가 모든 악세사리를 소유하고 있거나 사용 가능한 악세사리가 없는 경우
+
+    # 랜덤하게 하나의 악세사리 선택
+    random_avatar = random.choice(available_avatars)
+    return random_avatar

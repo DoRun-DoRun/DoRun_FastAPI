@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum, ForeignKey, Date, Sequence
 from sqlalchemy.orm import relationship
@@ -25,7 +25,7 @@ class InviteAcceptType(enum.Enum):
     PENDING = 'PENDING'
     ACCEPTED = 'ACCEPTED'
     DECLINED = 'DECLINED'
-    BLOCKED = 'BLOCKED'
+    DELETED = 'DELETED'
 
 
 class ItemType(enum.Enum):
@@ -63,11 +63,13 @@ class UserSetting(Base):
 
     USER_SETTING_NO = Column(Integer, primary_key=True)
     AGREE_POLICY_YN = Column(Boolean, default=False)
-    AGREE_POLICY_DT = Column(DateTime)
+    AGREE_POLICY_DT = Column(DateTime, onupdate=datetime.utcnow)
     NOTICE_PUSH_YN = Column(Boolean, default=False)
-    NOTICE_PUSH_DT = Column(DateTime)
+    NOTICE_PUSH_DT = Column(DateTime, onupdate=datetime.utcnow)
+    NOTICE_PUSH_AD_YN = Column(Boolean, default=False)
+    NOTICE_PUSH_AD_DT = Column(DateTime, onupdate=datetime.utcnow)
     NOTICE_PUSH_NIGHT_YN = Column(Boolean, default=False)
-    NOTICE_PUSH_NIGHT_DT = Column(DateTime)
+    NOTICE_PUSH_NIGHT_DT = Column(DateTime, onupdate=datetime.utcnow)
     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
 
 
@@ -77,9 +79,9 @@ class Friend(Base):
     FRIEND_NO = Column(Integer, primary_key=True)
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     ACCEPT_DT = Column(DateTime)
-    ACCEPT_STATUS = Column(Enum(InviteAcceptType), name='InviteAcceptType')
-    SENDER_UID = Column(Integer, ForeignKey('user.USER_NO'))
-    RECIPIENT_UID = Column(Integer, ForeignKey('user.USER_NO'))
+    ACCEPT_STATUS = Column(Enum(InviteAcceptType), name='InviteAcceptType', default=InviteAcceptType.PENDING)
+    SENDER_NO = Column(Integer, ForeignKey('user.USER_NO'))
+    RECIPIENT_NO = Column(Integer, ForeignKey('user.USER_NO'))
 
 
 class Avatar(Base):
@@ -123,14 +125,14 @@ class ChallengeUser(Base):
     __tablename__ = 'challenge_users'
 
     CHALLENGE_USER_NO = Column(Integer, primary_key=True)
-    ACCEPT_STATUS = Column(Enum(InviteAcceptType, name="InviteAcceptType"))
+    ACCEPT_STATUS = Column(Enum(InviteAcceptType, name="InviteAcceptType", default=InviteAcceptType.PENDING))
     COMMENT = Column(String, default="상태메시지를 설정해주세요")
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     IS_OWNER = Column(Boolean)
-    IS_LEADER = Column(Boolean)
+    IS_LEADER = Column(Boolean, default=False)
 
     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
     USER = relationship('User', back_populates='CHALLENGES')
@@ -177,9 +179,9 @@ class AdditionalGoal(Base):
 
     ADDITIONAL_NO = Column(Integer, primary_key=True)
     ADDITIONAL_NM = Column(String)
-    IS_DONE = Column(Boolean)
-    START_DT = Column(DateTime)
-    END_DT = Column(DateTime)
+    IS_DONE = Column(Boolean, default=False)
+    START_DT = Column(DateTime, default=datetime.utcnow)
+    END_DT = Column(DateTime, default=datetime.utcnow() + timedelta(hours=24))
     IMAGE_FILE_NM = Column(String)
 
     CHALLENGE_USER = relationship('ChallengeUser', backref="additional_goal")
@@ -235,8 +237,10 @@ class ItemLog(Base):
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
 
     # ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
-    SENDER_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
-    RECIPIENT_UID = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+    SENDER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+    RECIPIENT_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
 
-    sender = relationship('ChallengeUser', foreign_keys=[SENDER_UID])
-    recipient = relationship('ChallengeUser', foreign_keys=[RECIPIENT_UID])
+    ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
+
+    sender = relationship('ChallengeUser', foreign_keys=[SENDER_NO])
+    recipient = relationship('ChallengeUser', foreign_keys=[RECIPIENT_NO])

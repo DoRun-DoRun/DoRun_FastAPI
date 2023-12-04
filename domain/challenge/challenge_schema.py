@@ -3,7 +3,7 @@ from datetime import datetime, date
 from pydantic import BaseModel
 from typing import List, Optional
 
-from models import ChallengeStatusType, InviteAcceptType
+from models import ChallengeStatusType, InviteAcceptType, ItemType
 
 
 class ChallengeParticipant(BaseModel):
@@ -12,11 +12,29 @@ class ChallengeParticipant(BaseModel):
     ACCEPT_STATUS: InviteAcceptType
 
 
+class DiaryPydantic(BaseModel):
+    DAILY_COMPLETE_NO: int
+    IMAGE_FILE_NM: str
+    INSERT_DT: datetime
+    COMMENTS: str
+
+    class Config:
+        from_attributes = True
+
+
+class ItemPydantic(BaseModel):
+    ITEM_NO: int
+    ITEM_NM: ItemType
+    ITEM_USER_NO: int
+    COUNT: int
+
+
 class ChallengeUserList(BaseModel):
     CHALLENGE_USER_NO: int
     PROGRESS: float
     CHARACTER_NO: int
     PET_NO: Optional[int]
+    DIARIES: Optional[List[DiaryPydantic]]
 
     class Config:
         from_attributes = True
@@ -25,7 +43,7 @@ class ChallengeUserList(BaseModel):
 class ChallengeUserListModel(BaseModel):
     CHALLENGE_MST_NO: int
     CHALLENGE_MST_NM: str
-    challenge_user: list[ChallengeUserList]
+    challenge_user: List[ChallengeUserList]
 
 
 class ChallengeMST(BaseModel):
@@ -82,14 +100,18 @@ class AdditionalGoalPydantic(BaseModel):
 
 class ChallengeDetail(BaseModel):
     CHALLENGE_USER_NO: int
-    personGoal: List[PersonDailyGoalPydantic]
     teamGoal: List[TeamWeeklyGoalPydantic]
     additionalGoal: List[AdditionalGoalPydantic]
 
 
+class UserUID(BaseModel):
+    USER_UID: int
+    INVITE_STATS: InviteAcceptType
+
+
 class ChallengeCreate(BaseModel):
     CHALLENGE_MST_NM: str
-    USERS_UID: List[int]
+    USERS_UID: List[UserUID]
     START_DT: date
     END_DT: date
     HEADER_EMOJI: str
@@ -113,7 +135,7 @@ class GetChallengeUserDetail(BaseModel):
     CHARACTER_NO: int
     PROGRESS: float
     COMMENT: str
-    personGoal: List[PersonDailyGoalPydantic]
+    ITEM: List[ItemPydantic]
 
 
 class EmojiUser(BaseModel):

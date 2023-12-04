@@ -9,12 +9,14 @@ from sqlalchemy.orm import Session
 from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticipant, \
     PersonDailyGoalPydantic, \
     TeamWeeklyGoalPydantic, AdditionalGoalPydantic, ChallengeList, ChallengeInvite, \
-    ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser
+    ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser, DiaryPydantic, \
+    ItemPydantic
 from domain.desc.utils import calculate_challenge_progress
-from domain.user.user_crud import get_user_by_uid
+from domain.user import user_crud
+from domain.user.user_crud import get_user_by_uid, get_equipped_avatar
 from models import ChallengeMaster, User, TeamWeeklyGoal, ChallengeUser, PersonDailyGoal, AdditionalGoal, ItemUser, \
-    Item, InviteAcceptType, Avatar, AvatarUser, PersonDailyGoalComplete, AvatarType, ChallengeStatusType, \
-    DailyCompleteUser
+    Item, InviteAcceptType, PersonDailyGoalComplete, AvatarType, ChallengeStatusType, \
+    DailyCompleteUser, UserSetting
 
 
 # 기능 함수
@@ -23,7 +25,8 @@ def get_challenge_masters_by_user(db: Session, current_user: User) -> ChallengeM
     challenges = db.query(ChallengeMaster). \
         join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO). \
         filter(ChallengeUser.USER_NO == current_user.USER_NO,
-               ChallengeMaster.CHALLENGE_STATUS != ChallengeStatusType.COMPLETE).all()
+               ChallengeMaster.CHALLENGE_STATUS != ChallengeStatusType.COMPLETE,
+               ChallengeMaster.DELETE_YN == False).all()
 
     if not challenges:
         raise HTTPException(status_code=404, detail="진행 중인 챌린지를 찾을 수 없습니다.")
@@ -37,6 +40,9 @@ def get_challenge_master_by_id(db: Session, challenge_mst_no: int) -> ChallengeM
 
     if not challenge:
         raise HTTPException(status_code=404, detail="챌린지를 찾을 수 없습니다.")
+
+    if challenge.DELETE_YN:
+        raise HTTPException(status_code=404, detail="삭제된 챌린지 입니다.")
 
     return challenge
 
@@ -183,20 +189,6 @@ def get_team_weekly_goal_by_user(db: Session, challenge_mst_no: int, current_day
     return team_goals
 
 
-# 착용중인 아바타 가져오기
-def get_equipped_avatar(db: Session, user_no: int, avatar_type: AvatarType):
-    avatar = db.query(AvatarUser).join(Avatar, Avatar.AVATAR_NO == AvatarUser.AVATAR_NO).filter(
-        AvatarUser.USER_NO == user_no,
-        AvatarUser.IS_EQUIP == True,
-        Avatar.AVATAR_TYPE == avatar_type
-    ).first()
-
-    if avatar_type == AvatarType.CHARACTER and not avatar:
-        raise HTTPException(status_code=404, detail="CHARACTER 정보를 찾을 수 없습니다.")
-
-    return avatar
-
-
 # challenge_user 객체를 challenge_user_no 값으로 가져오기
 def get_challenge_user_by_challenge_user_no(db: Session, challenge_user_no: int):
     challenge_user = db.query(ChallengeUser).filter(ChallengeUser.CHALLENGE_USER_NO == challenge_user_no).first()
@@ -310,46 +302,59 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
     )
     db.add(db_challenge)
 
-    items = db.query(Item).all()
-    item_users = []
-
     # USERS_UID를 기반으로 챌린지에 참여중인 유저를 가져와 challenge_user 생성
     for uid in challenge_create.USERS_UID:
-        user = get_user_by_uid(db, uid)
-        team_leader = get_user_by_uid(db, uid=random.choice(challenge_create.USERS_UID))
+        user = get_user_by_uid(db, uid.USER_UID)
 
         db_challenge_user = ChallengeUser(
             CHALLENGE_MST=db_challenge,
             USER=user,
             IS_OWNER=current_user == user if True else False,
-            IS_LEADER=team_leader == user if True else False,
             ACCEPT_STATUS=InviteAcceptType.ACCEPTED if current_user == user else InviteAcceptType.PENDING
         )
         db.add(db_challenge_user)
 
+    db.commit()
+    return db_challenge
+
+
+def start_challenge(db: Session, challenge_mst_no: int):
+    challenge = get_challenge_master_by_id(db, challenge_mst_no)
+    challenge.CHALLENGE_STATUS = ChallengeStatusType.PROGRESS
+
+    challenge_users = db.query(ChallengeUser).filter(
+        ChallengeUser.CHALLENGE_MST_NO == challenge_mst_no, ChallengeUser.ACCEPT_STATUS == InviteAcceptType.ACCEPTED
+    ).all()
+
+    items = db.query(Item).all()
+
+    team_leader = random.choice(challenge_users)
+    team_leader.IS_LEADER = True
+
+    for challenge_user in challenge_users:
         db_team = TeamWeeklyGoal(
-            CHALLENGE_USER=db_challenge_user,
-            START_DT=challenge_create.START_DT,
-            END_DT=challenge_create.START_DT + timedelta(days=7),
+            CHALLENGE_USER=challenge_user,
+            START_DT=challenge.START_DT,
+            END_DT=challenge.START_DT + timedelta(days=7),
         )
         db.add(db_team)
 
         for item in items:
             db_item_user = ItemUser(
                 ITEM_NO=item.ITEM_NO,
-                CHALLENGE_USER=db_challenge_user
+                CHALLENGE_USER=challenge_user
             )
-            item_users.append(db_item_user)
-
-    for item_user in item_users:
-        db.add(item_user)
+            db.add(db_item_user)
 
     db.commit()
-    return db_challenge
+    return {"message": "챌린지가 시작되었습니다"}
 
 
 def get_challenge_user_list(db: Session, current_user: User):
     challenges = get_challenge_masters_by_user(db, current_user)
+
+    twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
+
     challenge_lists = []
     # ChallengeUserList 정보 조회
     for challenge in challenges:
@@ -365,11 +370,17 @@ def get_challenge_user_list(db: Session, current_user: User):
 
             pet = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.PET)
 
+            diaries = db.query(PersonDailyGoalComplete).filter(
+                PersonDailyGoalComplete.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
+                PersonDailyGoalComplete.INSERT_DT >= twenty_four_hours_ago
+            ).all()
+
             challenge_user_list = ChallengeUserList(
                 CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
                 PROGRESS=calculate_user_progress(db, challenge_user.CHALLENGE_USER_NO),
                 CHARACTER_NO=character.AVATAR_NO,
-                PET_NO=pet.AVATAR_NO if pet else None
+                PET_NO=pet.AVATAR_NO if pet else None,
+                DIARIES=[DiaryPydantic.model_validate(diary) for diary in diaries],
             )
             challenge_user_lists.append(challenge_user_list)
 
@@ -382,11 +393,18 @@ def get_challenge_user_list(db: Session, current_user: User):
     return challenge_lists
 
 
-def get_challenge_user_detail(db: Session, challenge_user_no: int, current_day: date):
+def get_challenge_user_detail(db: Session, challenge_user_no: int):
     challenge_user = get_challenge_user_by_challenge_user_no(db, challenge_user_no)
     user = db.query(User).filter(User.USER_NO == challenge_user.USER_NO).first()
     character = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.CHARACTER)
-    person_goal = get_person_goal_by_user(db, challenge_user_no, current_day)
+    items = db.query(Item).all()
+    item_list = []
+    for item in items:
+        item_user = db.query(ItemUser).filter(
+            ItemUser.CHALLENGE_USER_NO == challenge_user_no,
+            ItemUser.ITEM_NO == item.ITEM_NO).first()
+        item_list.append(ItemPydantic(ITEM_NO=item.ITEM_NO, ITEM_NM=item.ITEM_NM, COUNT=item_user.COUNT,
+                                      ITEM_USER_NO=item_user.ITEM_USER_NO))
 
     return GetChallengeUserDetail(
         CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
@@ -394,7 +412,7 @@ def get_challenge_user_detail(db: Session, challenge_user_no: int, current_day: 
         CHARACTER_NO=character.AVATAR_NO,
         PROGRESS=calculate_user_progress(db, challenge_user_no),
         COMMENT=challenge_user.COMMENT,
-        personGoal=person_goal
+        ITEM=item_list
     )
 
 
@@ -442,6 +460,23 @@ def get_challenge_history_list(db: Session, current_day: date, _current_user: Us
 def challenge_update(db: Session, challenge_mst_no: int, _challenge_update: ChallengeCreate, current_user: User):
     challenge = get_challenge_master_by_id(db, challenge_mst_no)
     challenge_user = get_challenge_user_by_user_no(db, challenge_mst_no, current_user.USER_NO)
+
+    existing_user_ids = {cu.USER.USER_NO for cu in challenge.USERS}
+
+    # USERS_UID를 기반으로 챌린지에 참여중인 유저를 가져와 challenge_user 생성
+    for uid in _challenge_update.USERS_UID:
+        user = get_user_by_uid(db, uid.USER_UID)
+
+        if user.USER_NO in existing_user_ids:
+            continue  # 이미 챌린지에 참여중인 유저는 건너뜀
+
+        db_challenge_user = ChallengeUser(
+            CHALLENGE_MST=challenge,
+            USER=user,
+            IS_OWNER=(current_user.USER_NO == user.USER_NO),
+            ACCEPT_STATUS=uid.INVITE_STATS
+        )
+        db.add(db_challenge_user)
 
     if not challenge_user.IS_OWNER:
         raise HTTPException(status_code=401, detail="수정 권한이 존재하지 않습니다.")

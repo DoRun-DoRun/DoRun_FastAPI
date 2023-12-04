@@ -12,7 +12,7 @@ from database import get_db
 from domain.challenge import challenge_crud
 from domain.desc.utils import random_user
 from domain.user.user_schema import CreateUser, UpdateUser, GetUser
-from models import User, SignType, UserSetting, AvatarUser, ChallengeStatusType
+from models import User, SignType, UserSetting, AvatarUser, ChallengeStatusType, AvatarType, Avatar
 
 from datetime import datetime, timedelta
 
@@ -46,7 +46,7 @@ def check_user_email_id_token_duplicate(db: Session, user_email: str, id_token: 
 
 # UID를 통해서 유저 반환
 def get_user_by_uid(db: Session, uid: int):
-    user = db.query(User).filter(User.UID == uid).first()
+    user = db.query(User).filter(User.UID == uid, User.DISABLE_YN == False).first()
     if not user:
         raise HTTPException(status_code=401, detail="UID로 부터 사용자를 찾을 수 없습니다.")
 
@@ -76,8 +76,7 @@ def get_current_user(token: str = Depends(oauth2_scheme),
         raise HTTPException(status_code=404, detail="JWT 에러")
     else:
         user = get_user_by_uid(db, uid=uid)
-        if user.DISABLE_YN is True:
-            raise HTTPException(status_code=400, detail="탈퇴한 사용자입니다.")
+
         return user
 
 
@@ -141,3 +140,17 @@ def get_user(db: Session, current_user: User):
                    COMPLETE=status_counts[ChallengeStatusType.COMPLETE],
                    PROGRESS=status_counts[ChallengeStatusType.PROGRESS],
                    PENDING=status_counts[ChallengeStatusType.PENDING])
+
+
+# 착용중인 아바타 가져오기
+def get_equipped_avatar(db: Session, user_no: int, avatar_type: AvatarType):
+    avatar = db.query(AvatarUser).join(Avatar, Avatar.AVATAR_NO == AvatarUser.AVATAR_NO).filter(
+        AvatarUser.USER_NO == user_no,
+        AvatarUser.IS_EQUIP == True,
+        Avatar.AVATAR_TYPE == avatar_type
+    ).first()
+
+    if avatar_type == AvatarType.CHARACTER and not avatar:
+        raise HTTPException(status_code=404, detail="CHARACTER 정보를 찾을 수 없습니다.")
+
+    return avatar
