@@ -12,10 +12,11 @@ from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticip
     ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser, DiaryPydantic, \
     ItemPydantic
 from domain.desc.utils import calculate_challenge_progress
+from domain.user import user_crud
 from domain.user.user_crud import get_user_by_uid, get_equipped_avatar
 from models import ChallengeMaster, User, TeamWeeklyGoal, ChallengeUser, PersonDailyGoal, AdditionalGoal, ItemUser, \
     Item, InviteAcceptType, PersonDailyGoalComplete, AvatarType, ChallengeStatusType, \
-    DailyCompleteUser
+    DailyCompleteUser, UserSetting
 
 
 # 기능 함수
@@ -24,7 +25,8 @@ def get_challenge_masters_by_user(db: Session, current_user: User) -> ChallengeM
     challenges = db.query(ChallengeMaster). \
         join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO). \
         filter(ChallengeUser.USER_NO == current_user.USER_NO,
-               ChallengeMaster.CHALLENGE_STATUS != ChallengeStatusType.COMPLETE).all()
+               ChallengeMaster.CHALLENGE_STATUS != ChallengeStatusType.COMPLETE,
+               ChallengeMaster.DELETE_YN == False).all()
 
     if not challenges:
         raise HTTPException(status_code=404, detail="진행 중인 챌린지를 찾을 수 없습니다.")
@@ -38,6 +40,9 @@ def get_challenge_master_by_id(db: Session, challenge_mst_no: int) -> ChallengeM
 
     if not challenge:
         raise HTTPException(status_code=404, detail="챌린지를 찾을 수 없습니다.")
+
+    if challenge.DELETE_YN:
+        raise HTTPException(status_code=404, detail="삭제된 챌린지 입니다.")
 
     return challenge
 
@@ -297,13 +302,9 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
     )
     db.add(db_challenge)
 
-    # items = db.query(Item).all()
-    # item_users = []
-
     # USERS_UID를 기반으로 챌린지에 참여중인 유저를 가져와 challenge_user 생성
     for uid in challenge_create.USERS_UID:
-        user = get_user_by_uid(db, uid)
-        # team_leader = get_user_by_uid(db, uid=random.choice(challenge_create.USERS_UID))
+        user = get_user_by_uid(db, uid.USER_UID)
 
         db_challenge_user = ChallengeUser(
             CHALLENGE_MST=db_challenge,
@@ -313,25 +314,40 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
         )
         db.add(db_challenge_user)
 
-        # db_team = TeamWeeklyGoal(
-        #     CHALLENGE_USER=db_challenge_user,
-        #     START_DT=challenge_create.START_DT,
-        #     END_DT=challenge_create.START_DT + timedelta(days=7),
-        # )
-        # db.add(db_team)
-        #
-        # for item in items:
-        #     db_item_user = ItemUser(
-        #         ITEM_NO=item.ITEM_NO,
-        #         CHALLENGE_USER=db_challenge_user
-        #     )
-        #     item_users.append(db_item_user)
-    #
-    # for item_user in item_users:
-    #     db.add(item_user)
-
     db.commit()
     return db_challenge
+
+
+def start_challenge(db: Session, challenge_mst_no: int):
+    challenge = get_challenge_master_by_id(db, challenge_mst_no)
+    challenge.CHALLENGE_STATUS = ChallengeStatusType.PROGRESS
+
+    challenge_users = db.query(ChallengeUser).filter(
+        ChallengeUser.CHALLENGE_MST_NO == challenge_mst_no, ChallengeUser.ACCEPT_STATUS == InviteAcceptType.ACCEPTED
+    ).all()
+
+    items = db.query(Item).all()
+
+    team_leader = random.choice(challenge_users)
+    team_leader.IS_LEADER = True
+
+    for challenge_user in challenge_users:
+        db_team = TeamWeeklyGoal(
+            CHALLENGE_USER=challenge_user,
+            START_DT=challenge.START_DT,
+            END_DT=challenge.START_DT + timedelta(days=7),
+        )
+        db.add(db_team)
+
+        for item in items:
+            db_item_user = ItemUser(
+                ITEM_NO=item.ITEM_NO,
+                CHALLENGE_USER=challenge_user
+            )
+            db.add(db_item_user)
+
+    db.commit()
+    return {"message": "챌린지가 시작되었습니다"}
 
 
 def get_challenge_user_list(db: Session, current_user: User):

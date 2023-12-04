@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 from database import get_db
 from domain.challenge import challenge_schema, challenge_crud
 from domain.challenge.challenge_crud import get_challenge_list, get_challenge_detail, \
-    get_challenge_invite, get_challenge_user_by_user_no
+    get_challenge_invite, get_challenge_user_by_user_no, start_challenge
 from domain.challenge.challenge_schema import ChallengeInvite, PutChallengeInvite
 from domain.user.user_crud import get_current_user
-from models import User
+from models import User, ChallengeUser
 
 router = APIRouter(
     prefix="/challenge",
@@ -48,6 +48,12 @@ def challenge_create(_challenge_create: challenge_schema.ChallengeCreate,
                                                      current_user=_current_user)
     db.refresh(challenge)
     return {"message": "챌린지 생성 성공", "challenge": challenge}
+
+
+@router.post("/start")
+def challenge_start(challenge_mst_no: int, db: Session = Depends(get_db)):
+    message = start_challenge(db, challenge_mst_no)
+    return message
 
 
 @router.put("/{challenge_mst_no}")
