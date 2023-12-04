@@ -132,7 +132,7 @@ class ChallengeUser(Base):
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     IS_OWNER = Column(Boolean)
-    IS_LEADER = Column(Boolean)
+    IS_LEADER = Column(Boolean, default=False)
 
     USER_NO = Column(Integer, ForeignKey('user.USER_NO'))
     USER = relationship('User', back_populates='CHALLENGES')

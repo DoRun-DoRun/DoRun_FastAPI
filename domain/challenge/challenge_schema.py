@@ -25,7 +25,7 @@ class DiaryPydantic(BaseModel):
 class ItemPydantic(BaseModel):
     ITEM_NO: int
     ITEM_NM: ItemType
-    ITEM_USER_NO:int
+    ITEM_USER_NO: int
     COUNT: int
 
 
@@ -104,9 +104,14 @@ class ChallengeDetail(BaseModel):
     additionalGoal: List[AdditionalGoalPydantic]
 
 
+class UserUID(BaseModel):
+    USER_UID: int
+    INVITE_STATS: InviteAcceptType
+
+
 class ChallengeCreate(BaseModel):
     CHALLENGE_MST_NM: str
-    USERS_UID: List[int]
+    USERS_UID: List[UserUID]
     START_DT: date
     END_DT: date
     HEADER_EMOJI: str

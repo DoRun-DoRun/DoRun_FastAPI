@@ -297,39 +297,38 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
     )
     db.add(db_challenge)
 
-    items = db.query(Item).all()
-    item_users = []
+    # items = db.query(Item).all()
+    # item_users = []
 
     # USERS_UID를 기반으로 챌린지에 참여중인 유저를 가져와 challenge_user 생성
     for uid in challenge_create.USERS_UID:
         user = get_user_by_uid(db, uid)
-        team_leader = get_user_by_uid(db, uid=random.choice(challenge_create.USERS_UID))
+        # team_leader = get_user_by_uid(db, uid=random.choice(challenge_create.USERS_UID))
 
         db_challenge_user = ChallengeUser(
             CHALLENGE_MST=db_challenge,
             USER=user,
             IS_OWNER=current_user == user if True else False,
-            IS_LEADER=team_leader == user if True else False,
             ACCEPT_STATUS=InviteAcceptType.ACCEPTED if current_user == user else InviteAcceptType.PENDING
         )
         db.add(db_challenge_user)
 
-        db_team = TeamWeeklyGoal(
-            CHALLENGE_USER=db_challenge_user,
-            START_DT=challenge_create.START_DT,
-            END_DT=challenge_create.START_DT + timedelta(days=7),
-        )
-        db.add(db_team)
-
-        for item in items:
-            db_item_user = ItemUser(
-                ITEM_NO=item.ITEM_NO,
-                CHALLENGE_USER=db_challenge_user
-            )
-            item_users.append(db_item_user)
-
-    for item_user in item_users:
-        db.add(item_user)
+        # db_team = TeamWeeklyGoal(
+        #     CHALLENGE_USER=db_challenge_user,
+        #     START_DT=challenge_create.START_DT,
+        #     END_DT=challenge_create.START_DT + timedelta(days=7),
+        # )
+        # db.add(db_team)
+        #
+        # for item in items:
+        #     db_item_user = ItemUser(
+        #         ITEM_NO=item.ITEM_NO,
+        #         CHALLENGE_USER=db_challenge_user
+        #     )
+        #     item_users.append(db_item_user)
+    #
+    # for item_user in item_users:
+    #     db.add(item_user)
 
     db.commit()
     return db_challenge
@@ -445,6 +444,23 @@ def get_challenge_history_list(db: Session, current_day: date, _current_user: Us
 def challenge_update(db: Session, challenge_mst_no: int, _challenge_update: ChallengeCreate, current_user: User):
     challenge = get_challenge_master_by_id(db, challenge_mst_no)
     challenge_user = get_challenge_user_by_user_no(db, challenge_mst_no, current_user.USER_NO)
+
+    existing_user_ids = {cu.USER.USER_NO for cu in challenge.USERS}
+
+    # USERS_UID를 기반으로 챌린지에 참여중인 유저를 가져와 challenge_user 생성
+    for uid in _challenge_update.USERS_UID:
+        user = get_user_by_uid(db, uid.USER_UID)
+
+        if user.USER_NO in existing_user_ids:
+            continue  # 이미 챌린지에 참여중인 유저는 건너뜀
+
+        db_challenge_user = ChallengeUser(
+            CHALLENGE_MST=challenge,
+            USER=user,
+            IS_OWNER=(current_user.USER_NO == user.USER_NO),
+            ACCEPT_STATUS=uid.INVITE_STATS
+        )
+        db.add(db_challenge_user)
 
     if not challenge_user.IS_OWNER:
         raise HTTPException(status_code=401, detail="수정 권한이 존재하지 않습니다.")
