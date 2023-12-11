@@ -5,11 +5,12 @@ from pydantic import BaseModel, EmailStr
 from models import SignType
 
 
-class Token(BaseModel):
+class PostCreateUser(BaseModel):
     access_token: str
     token_type: str
     refresh_token: str
     UID: int
+    USER_NM: str
 
 
 class CreateUser(BaseModel):

@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime, timedelta
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum, ForeignKey, Date, Sequence
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum, ForeignKey, Sequence
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -106,8 +106,8 @@ class ChallengeMaster(Base):
 
     CHALLENGE_MST_NO = Column(Integer, primary_key=True)
     CHALLENGE_MST_NM = Column(String)
-    START_DT = Column(Date)
-    END_DT = Column(Date)
+    START_DT = Column(DateTime)
+    END_DT = Column(DateTime)
     HEADER_EMOJI = Column(String)
     CHALLENGE_STATUS = Column(Enum(ChallengeStatusType, name='ChallengeStatusType'),
                               default=ChallengeStatusType.PENDING)
@@ -194,7 +194,7 @@ class PersonDailyGoalComplete(Base):
     DAILY_COMPLETE_NO = Column(Integer, primary_key=True)
     IMAGE_FILE_NM = Column(String)
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
-    COMMENTS = Column(String)
+    COMMENT = Column(String)
 
     CHALLENGE_USER = relationship('ChallengeUser', backref="person_daily_goal_complete")
     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))

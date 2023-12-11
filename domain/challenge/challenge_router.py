@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -17,19 +17,16 @@ router = APIRouter(
 )
 
 
-@router.get("/list", response_model=list[challenge_schema.ChallengeList])
+@router.get("/list", response_model=challenge_schema.ChallengeList)
 def challenge_list(db: Session = Depends(get_db),
                    _current_user: User = Depends(get_current_user)):
     _challenge_list = get_challenge_list(db, _current_user)
-
-    if not _challenge_list:
-        raise HTTPException(status_code=404, detail="참여중인 챌린지를 찾을 수 없습니다.")
 
     return _challenge_list
 
 
 @router.get("/detail/{challenge_mst_no}", response_model=challenge_schema.ChallengeDetail)
-def challenge_detail(challenge_mst_no: int, current_day: date, db: Session = Depends(get_db),
+def challenge_detail(challenge_mst_no: int, current_day: datetime, db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
     _challenge = get_challenge_detail(db, user_no=_current_user.USER_NO, challenge_mst_no=challenge_mst_no,
                                       current_day=current_day)
@@ -47,12 +44,12 @@ def challenge_create(_challenge_create: challenge_schema.ChallengeCreate,
     challenge = challenge_crud.post_create_challenge(db, challenge_create=_challenge_create,
                                                      current_user=_current_user)
     db.refresh(challenge)
-    return {"message": "챌린지 생성 성공", "challenge": challenge}
+    return challenge
 
 
 @router.post("/start")
-def challenge_start(challenge_mst_no: int, db: Session = Depends(get_db)):
-    message = start_challenge(db, challenge_mst_no)
+def challenge_start(challenge_mst_no: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    message = start_challenge(db, challenge_mst_no, current_user)
     return message
 
 
@@ -120,7 +117,7 @@ def challenge_invite(put_challenge_invite: PutChallengeInvite, db: Session = Dep
 
 
 @router.get("/history", response_model=list[challenge_schema.GetChallengeHistory])
-def get_challenge_history_list(current_day: date, db: Session = Depends(get_db),
+def get_challenge_history_list(current_day: datetime, db: Session = Depends(get_db),
                                _current_user: User = Depends(get_current_user)):
     challenge_history_list = challenge_crud.get_challenge_history_list(db, current_day, _current_user)
     return challenge_history_list

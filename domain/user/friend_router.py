@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from domain.user import user_crud
+from domain.user.friend_schema import FriendListResponse
 from domain.user.user_crud import get_current_user
 from models import User, Friend, InviteAcceptType
 
@@ -41,13 +42,29 @@ def invite_friend(uid: int, db: Session = Depends(get_db),
     return {"message": "친구요청 성공!"}
 
 
-@router.get("/list")
+@router.get("/list", response_model=FriendListResponse)
 def get_friend_list(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    friend_list = db.query(Friend).filter(
-        or_(Friend.SENDER_NO == current_user.USER_NO, Friend.RECIPIENT_NO == current_user.USER_NO),
-        Friend.ACCEPT_STATUS != InviteAcceptType.DECLINED).all()
+    # 친구 목록 조회
+    friend_records = db.query(Friend).filter(
+        or_(Friend.SENDER_NO == current_user.USER_NO, Friend.RECIPIENT_NO == current_user.USER_NO)
+    ).all()
 
-    return friend_list
+    # 각 상태에 따른 친구 목록 필터링 및 필요한 정보 추출
+    pending_friends = []
+    accepted_friends = []
+
+    for record in friend_records:
+        friend_user_no = record.SENDER_NO if record.RECIPIENT_NO == current_user.USER_NO else record.RECIPIENT_NO
+        friend_user = db.query(User).filter(User.USER_NO == friend_user_no).first()
+
+        if friend_user:
+            friend_data = {"UID": friend_user.UID, "USER_NM": friend_user.USER_NM}
+            if record.ACCEPT_STATUS == InviteAcceptType.PENDING:
+                pending_friends.append(friend_data)
+            elif record.ACCEPT_STATUS == InviteAcceptType.ACCEPTED:
+                accepted_friends.append(friend_data)
+
+    return {"pending": pending_friends, "accepted": accepted_friends}
 
 
 @router.put("/{friend_no}")

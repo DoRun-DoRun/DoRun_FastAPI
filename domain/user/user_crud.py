@@ -1,7 +1,7 @@
 from collections import Counter
 
 from fastapi import Depends, HTTPException
-from jose import jwt, JWTError
+from jose import jwt, JWTError, ExpiredSignatureError
 from sqlalchemy import or_
 from starlette.config import Config
 
@@ -69,15 +69,36 @@ def get_current_user(token: str = Depends(oauth2_scheme),
                      db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        uid = int(payload.get("sub"))
-        if uid is None:
-            raise HTTPException(status_code=401, detail="토큰값으로부터 UID 정보를 찾을 수 없습니다.")
+    except ExpiredSignatureError:
+        # 토큰이 만료된 경우 새 토큰 발급
+        raise HTTPException(status_code=401, detail="토큰이 만료되었습니다.")
     except JWTError:
+        # 다른 JWT 에러 처리
         raise HTTPException(status_code=404, detail="JWT 에러")
-    else:
-        user = get_user_by_uid(db, uid=uid)
 
-        return user
+    uid = int(payload.get("sub"))
+    if uid is None:
+        raise HTTPException(status_code=401, detail="토큰값으로부터 UID 정보를 찾을 수 없습니다.")
+
+    user = get_user_by_uid(db, uid=uid)
+    return user
+
+
+def refresh_token(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": False})
+        uid = payload.get("sub")
+    except JWTError:
+        raise HTTPException(status_code=400, detail="유효하지 않은 토큰입니다.")
+
+    user = get_user_by_uid(db, uid)
+    user.RECENT_LOGIN_DT = datetime.utcnow()
+    db.add(user)
+    db.commit()
+
+    # 새로운 토큰 생성
+    new_token = encode_token(sub=uid, is_exp=True)
+    return new_token
 
 
 # 라우터 함수
@@ -105,7 +126,7 @@ def create_user(user: CreateUser, db: Session):
     db.add(db_avatar_user)
     db.commit()
 
-    return db_user.UID
+    return db_user
 
 
 def update_user(user: UpdateUser, db: Session, current_user: User):
@@ -133,8 +154,6 @@ def get_user(db: Session, current_user: User):
 
     challenges = challenge_crud.get_challenge_masters_by_user(db, current_user)
     status_counts = Counter(challenge.CHALLENGE_STATUS for challenge in challenges)
-    if not status_counts:
-        raise HTTPException(status_code=400, detail="챌린지 개수를 셀 수 없습니다.")
 
     return GetUser(USER_NM=current_user.USER_NM, USER_CHARACTER_NO=equipped_avatar_user.AVATAR_USER_NO,
                    COMPLETE=status_counts[ChallengeStatusType.COMPLETE],

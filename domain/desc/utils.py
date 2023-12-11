@@ -8,8 +8,12 @@ from models import Item, AvatarUser, Avatar
 
 
 def calculate_challenge_progress(start_dt, end_dt):
-    total_days = (end_dt - start_dt).days + 1
-    elapsed_days = (datetime.utcnow().date() - start_dt).days
+    # datetime.datetime을 datetime.date로 변환
+    start_date = start_dt.date()
+    end_date = end_dt.date()
+
+    total_days = (end_date - start_date).days + 1
+    elapsed_days = (datetime.utcnow().date() - start_date).days
     return min(max(elapsed_days / total_days * 100, 0), 100)  # 0에서 100 사이의 값을 반환
 
 
@@ -44,7 +48,7 @@ class RewardType(enum.Enum):
 
 def select_randomly_with_probability():
     choices = list(RewardType)
-    probabilities = [50, 45, 5]
+    probabilities = [5, 45, 50]
     selected = random.choices(choices, weights=probabilities, k=1)[0]
 
     return selected

@@ -77,7 +77,8 @@ def create_diary(_create_diary: CreateDiary, db: Session = Depends(get_db),
         item_user = db.query(ItemUser).filter(
             ItemUser.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
             ItemUser.ITEM_NO == item.ITEM_NO).first()
-
+        if not item_user:
+            raise HTTPException(status_code=404, detail="사용자 아이템 정보가 없습니다.")
         item_user.COUNT += 1
         select_item = item.ITEM_NM
 

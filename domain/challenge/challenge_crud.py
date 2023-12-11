@@ -4,13 +4,13 @@ import random
 from fastapi import HTTPException
 from sqlalchemy import func, Integer
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticipant, \
     PersonDailyGoalPydantic, \
     TeamWeeklyGoalPydantic, AdditionalGoalPydantic, ChallengeList, ChallengeInvite, \
     ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser, DiaryPydantic, \
-    ItemPydantic
+    ItemPydantic, ChallengeMSTProgress
 from domain.desc.utils import calculate_challenge_progress
 from domain.user import user_crud
 from domain.user.user_crud import get_user_by_uid, get_equipped_avatar
@@ -29,7 +29,7 @@ def get_challenge_masters_by_user(db: Session, current_user: User) -> ChallengeM
                ChallengeMaster.DELETE_YN == False).all()
 
     if not challenges:
-        raise HTTPException(status_code=404, detail="진행 중인 챌린지를 찾을 수 없습니다.")
+        return []
 
     return challenges
 
@@ -166,7 +166,7 @@ def get_challenge_users_by_mst_no(db: Session, challenge_mst_no):
 
 
 # 해당 날짜의 사용자 person goal 객체들을 가져오기
-def get_person_goal_by_user(db: Session, challenge_user_no: int, current_day: date):
+def get_person_goal_by_user(db: Session, challenge_user_no: int, current_day: datetime):
     person_goals = db.query(PersonDailyGoal).filter(
         PersonDailyGoal.CHALLENGE_USER_NO == challenge_user_no,
         PersonDailyGoal.INSERT_DT >= current_day,
@@ -177,13 +177,13 @@ def get_person_goal_by_user(db: Session, challenge_user_no: int, current_day: da
 
 
 # 해당 날짜의 사용자 team weekly goal 객체들을 가져오기
-def get_team_weekly_goal_by_user(db: Session, challenge_mst_no: int, current_day: date):
+def get_team_weekly_goal_by_user(db: Session, challenge_mst_no: int, current_day: datetime):
     team_goals = db.query(TeamWeeklyGoal).join(
         ChallengeUser,
     ).filter(
         ChallengeUser.CHALLENGE_MST_NO == challenge_mst_no,
         TeamWeeklyGoal.START_DT <= current_day,  # 현재 시간 이후로 시작하는 것을 포함
-        TeamWeeklyGoal.END_DT >= current_day  # 현재 시간 이전에 종료하는 것을 배제
+        TeamWeeklyGoal.END_DT >= current_day,  # 현재 시간 이전에 종료하는 것을 배제
     ).all()
 
     return team_goals
@@ -211,26 +211,56 @@ def get_active_challenges_for_user(db: Session, user_no: int, specified_date: da
     ).all()
 
     if not user_challenges:
-        raise HTTPException(status_code=404, detail="해당 날짜에 챌린지 기록이 존재하지 않습니다.")
+        # raise HTTPException(status_code=404, detail="해당 날짜에 챌린지 기록이 존재하지 않습니다.")
+        return []
 
     return user_challenges
 
 
 # 라우터 함수
 def get_challenge_list(db: Session, current_user: User):
-    challenges = get_challenge_masters_by_user(db, current_user)
+    challenges = db.query(
+        ChallengeMaster.CHALLENGE_MST_NO,
+        ChallengeMaster.CHALLENGE_MST_NM,
+        ChallengeMaster.START_DT,
+        ChallengeMaster.END_DT,
+        ChallengeMaster.HEADER_EMOJI,
+        ChallengeMaster.CHALLENGE_STATUS,
+        ChallengeUser.ACCEPT_STATUS
+    ).join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO) \
+        .filter(
+        ChallengeUser.USER_NO == current_user.USER_NO,
+        ChallengeMaster.CHALLENGE_STATUS != ChallengeStatusType.COMPLETE,
+        ChallengeMaster.DELETE_YN == False
+    ).all()
 
-    challenge_list = []
+    invited_challenges = []
+    progress_challenges = []
+
+    # 챌린지 분류 로직
     for challenge in challenges:
-        challenge_info = ChallengeList.model_validate(challenge)
-        challenge_info.PROGRESS = calculate_challenge_progress(challenge.START_DT, challenge.END_DT)
+        challenge_info = {
+            "CHALLENGE_MST_NO": challenge[0],
+            "CHALLENGE_MST_NM": challenge[1],
+            "START_DT": challenge[2],
+            "END_DT": challenge[3],
+            "HEADER_EMOJI": challenge[4],
+            "CHALLENGE_STATUS": challenge[5],
+            "PROGRESS": calculate_challenge_progress(challenge[2], challenge[3])  # 프로그레스 계산 함수
+        }
 
-        challenge_list.append(challenge_info)
+        if challenge[6] == InviteAcceptType.PENDING:
+            invited_challenges.append(challenge_info)
+        elif challenge[6] == InviteAcceptType.ACCEPTED:
+            progress_challenges.append(challenge_info)
 
-    return challenge_list
+    return {
+        "invited_challenges": invited_challenges,
+        "progress_challenges": progress_challenges
+    }
 
 
-def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int, current_day: date):
+def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int, current_day: datetime):
     challenge_user = get_challenge_user_by_user_no(db, challenge_mst_no, user_no)
 
     person_goals = get_person_goal_by_user(db, challenge_user.CHALLENGE_USER_NO, current_day)
@@ -241,25 +271,48 @@ def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int, curre
     # TeamWeeklyGoal 목록 검색 및 필터링
     team_goals = get_team_weekly_goal_by_user(db, challenge_mst_no, current_day)
 
-    if not team_goals:
-        raise HTTPException(status_code=404, detail="팀 목표를 찾을 수 없습니다.")
-
-    # additional_goals 목록 검색
     additional_goals = db.query(AdditionalGoal).join(
         ChallengeUser,
         ChallengeUser.CHALLENGE_USER_NO == AdditionalGoal.CHALLENGE_USER_NO
+    ).join(
+        User,
+        User.USER_NO == ChallengeUser.USER_NO
     ).filter(
         ChallengeUser.CHALLENGE_MST_NO == challenge_mst_no,
-        AdditionalGoal.START_DT <= current_utc_time,  # 현재 시간 이후로 시작하는 것을 포함
-        AdditionalGoal.END_DT >= current_utc_time  # 현재 시간 이전에 종료하는 것을 배제
+        AdditionalGoal.START_DT <= current_utc_time,
+        AdditionalGoal.END_DT >= current_utc_time
     ).all()
+
+    additional_goals_data = []
+    for goal in additional_goals:
+        try:
+            # ChallengeUser와 User 테이블에 대한 참조를 사용하여 사용자 이름 가져오기
+            user_nn = goal.CHALLENGE_USER.USER.USER_NM
+
+            # Pydantic 모델에 필요한 데이터를 딕셔너리로 만들기
+            goal_data_dict = {
+                "ADDITIONAL_NO": goal.ADDITIONAL_NO,
+                "ADDITIONAL_NM": goal.ADDITIONAL_NM,
+                "IS_DONE": goal.IS_DONE,
+                "IMAGE_FILE_NM": goal.IMAGE_FILE_NM,
+                "START_DT": goal.START_DT,
+                "END_DT": goal.END_DT,
+                "CHALLENGE_USER_NO": goal.CHALLENGE_USER_NO,
+                "CHALLENGE_USER_NN": user_nn,  # 추가된 사용자 이름
+            }
+
+            # 딕셔너리를 Pydantic 모델로 변환
+            goal_data = AdditionalGoalPydantic(**goal_data_dict)
+            additional_goals_data.append(goal_data)
+        except Exception as e:
+            print(f"Error processing goal: {goal}. Error: {e}")
 
     # Pydantic 모델을 사용하여 결과 구조화
     return {
         "CHALLENGE_USER_NO": challenge_user.CHALLENGE_USER_NO,
         "personGoal": [PersonDailyGoalPydantic.model_validate(goal) for goal in person_goals],
         "teamGoal": [TeamWeeklyGoalPydantic.model_validate(goal) for goal in team_goals],
-        "additionalGoal": [AdditionalGoalPydantic.model_validate(goal) for goal in additional_goals]
+        "additionalGoal": additional_goals_data
     }
 
 
@@ -318,8 +371,13 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
     return db_challenge
 
 
-def start_challenge(db: Session, challenge_mst_no: int):
+def start_challenge(db: Session, challenge_mst_no: int, current_user: User):
     challenge = get_challenge_master_by_id(db, challenge_mst_no)
+    owner = get_challenge_user_by_user_no(db, challenge_mst_no, user_no=current_user.USER_NO)
+
+    if not owner.IS_OWNER:
+        raise HTTPException(status_code=401, detail="시작 권한이 없습니다")
+
     challenge.CHALLENGE_STATUS = ChallengeStatusType.PROGRESS
 
     challenge_users = db.query(ChallengeUser).filter(
@@ -416,7 +474,7 @@ def get_challenge_user_detail(db: Session, challenge_user_no: int):
     )
 
 
-def get_challenge_history_list(db: Session, current_day: date, _current_user: User):
+def get_challenge_history_list(db: Session, current_day: datetime, _current_user: User):
     challenges = get_active_challenges_for_user(db, _current_user.USER_NO, current_day)
 
     challenge_history_list = []
@@ -424,7 +482,8 @@ def get_challenge_history_list(db: Session, current_day: date, _current_user: Us
         challenge_user = get_challenge_user_by_user_no(db, challenge.CHALLENGE_MST_NO, _current_user.USER_NO)
         daily_complete = db.query(PersonDailyGoalComplete).filter(
             PersonDailyGoalComplete.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
-            func.date(PersonDailyGoalComplete.INSERT_DT) == current_day
+            PersonDailyGoalComplete.INSERT_DT >= current_day,
+            PersonDailyGoalComplete.INSERT_DT <= current_day + timedelta(days=1)
         ).first()
         daily_complete_users_list = []
         image_file = ''
@@ -441,17 +500,22 @@ def get_challenge_history_list(db: Session, current_day: date, _current_user: Us
                     EmojiUser(CHALLENGE_USER_NO=daily_complete_user.CHALLENGE_USER_NO, EMOJI=daily_complete_user.EMOJI))
 
         person_goal = get_person_goal_by_user(db, challenge_user.CHALLENGE_USER_NO, current_day)
-        team_goals = get_team_weekly_goal_by_user(db, challenge_user.CHALLENGE_MST_NO, current_day)
+        team_goal = db.query(TeamWeeklyGoal).join(ChallengeUser).filter(
+            ChallengeUser.CHALLENGE_MST_NO == challenge.CHALLENGE_MST_NO,
+            TeamWeeklyGoal.START_DT <= current_day,  # 현재 시간 이후로 시작하는 것을 포함
+            TeamWeeklyGoal.END_DT >= current_day,  # 현재 시간 이전에 종료하는 것을 배제
+            challenge_user.CHALLENGE_USER_NO == TeamWeeklyGoal.CHALLENGE_USER_NO
+        ).first()
 
         challenge_history_list.append(GetChallengeHistory(
-            CHALLENGE_MST_NO=challenge_user.CHALLENGE_MST_NO,
-            CHALLENGE_MST_NM=get_challenge_master_by_id(db, challenge_user.CHALLENGE_MST_NO).CHALLENGE_MST_NM,
+            CHALLENGE_MST_NO=challenge.CHALLENGE_MST_NO,
+            CHALLENGE_MST_NM=challenge.CHALLENGE_MST_NM,
             IMAGE_FILE_NM=image_file,
             EMOJI=daily_complete_users_list,
             COMMENT=comment,
             personGoal=person_goal,
-            teamGoal=[TeamWeeklyGoalPydantic.model_validate(team_goal) for team_goal in team_goals])
-        )
+            teamGoal=team_goal
+        ))
 
     return challenge_history_list
 

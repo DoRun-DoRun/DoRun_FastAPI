@@ -58,8 +58,13 @@ class ChallengeMST(BaseModel):
         from_attributes = True
 
 
-class ChallengeList(ChallengeMST):
+class ChallengeMSTProgress(ChallengeMST):
     PROGRESS: Optional[float] = None
+
+
+class ChallengeList(BaseModel):
+    progress_challenges: Optional[List[ChallengeMSTProgress]]
+    invited_challenges: Optional[List[ChallengeMSTProgress]]
 
 
 class ChallengeInvite(ChallengeMST):
@@ -93,6 +98,7 @@ class AdditionalGoalPydantic(BaseModel):
     START_DT: datetime
     END_DT: datetime
     CHALLENGE_USER_NO: int
+    CHALLENGE_USER_NN: str
 
     class Config:
         from_attributes = True
@@ -112,10 +118,9 @@ class UserUID(BaseModel):
 class ChallengeCreate(BaseModel):
     CHALLENGE_MST_NM: str
     USERS_UID: List[UserUID]
-    START_DT: date
-    END_DT: date
+    START_DT: datetime
+    END_DT: datetime
     HEADER_EMOJI: str
-    INSERT_DT: datetime
 
     # @validator('*', pre=True)
     # def not_empty(cls, value: Any, field) -> Any:
@@ -150,4 +155,4 @@ class GetChallengeHistory(BaseModel):
     EMOJI: Optional[List[EmojiUser]]
     COMMENT: Optional[str]
     personGoal: Optional[List[PersonDailyGoalPydantic]]
-    teamGoal: Optional[List[TeamWeeklyGoalPydantic]]
+    teamGoal: Optional[TeamWeeklyGoalPydantic]

@@ -4,10 +4,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-
 from database import get_db
 from domain.user import user_crud, user_schema
-from domain.user.user_crud import encode_token, get_current_user
+from domain.user.user_crud import encode_token, get_current_user, refresh_token, get_equipped_avatar
 from domain.user.user_schema import CreateUser, UpdateUser, GetUser, UpdateUserResponse, GetUserSetting, \
     UpdateUserSetting
 from models import User, AvatarUser, Avatar, UserSetting, SignType
@@ -30,23 +29,24 @@ def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Sessio
     }
 
 
-@router.post("", response_model=user_schema.Token)
+@router.post("", response_model=user_schema.PostCreateUser)
 def create_user(user: CreateUser, db: Session = Depends(get_db)):
     is_valid, message = user.is_valid
 
     if not is_valid:
         raise HTTPException(status_code=400, detail=message)
 
-    new_uid = user_crud.create_user(user, db)
+    user = user_crud.create_user(user, db)
 
-    access_token = encode_token(str(new_uid), is_exp=True)
-    refresh_token = encode_token(str(new_uid), is_exp=False)
+    access_token = encode_token(str(user.UID), is_exp=True)
+    _refresh_token = encode_token(str(user.UID), is_exp=False)
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "refresh_token": refresh_token,
-        "UID": new_uid
+        "refresh_token": _refresh_token,
+        "UID": user.UID,
+        "USER_NM": user.USER_NM
     }
 
 
@@ -56,21 +56,16 @@ def get_user(db: Session = Depends(get_db), current_user: User = Depends(get_cur
 
 
 @router.get("/login")
-def login_for_access_token(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    access_token = encode_token(str(current_user.UID), is_exp=True)
-
-    if not access_token:
-        raise HTTPException(status_code=404, detail="AccessToken 발급 실패")
-
-    current_user.RECENT_LOGIN_DT = datetime.utcnow()
-    db.add(current_user)
-    db.commit()
-
+def login_for_access_token(access_token=Depends(refresh_token)):
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "UID": current_user.UID
     }
+
+
+# @router.get("/callback")
+# def refresh_user(token=Depends(get_new_token)):
+#     return {"access_token": token}
 
 
 @router.put("", response_model=UpdateUserResponse)
@@ -101,37 +96,66 @@ def delete_user(db: Session = Depends(get_db), current_user: User = Depends(get_
     db.commit()
 
     return {
-        "USER_UID": current_user.UID,
+        "UID": current_user.UID,
         "message": "삭제 성공"
     }
 
 
 @router.get("/search/{uid}")
 def search_user(uid: int, db: Session = Depends(get_db)):
-    user = user_crud.get_user_by_uid(db, uid)
+    # user = user_crud.get_user_by_uid(db, uid)
 
-    return user
+    user = db.query(User).filter(User.UID == uid, User.DISABLE_YN == False).first()
+    if not user:
+        return {"USER_NM": None, "UID": None}
+
+    return {"USER_NM": user.USER_NM, "UID": user.UID}
 
 
 @router.get("/avatar")
 def get_avatars(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    avatars = db.query(AvatarUser).filter(
-        AvatarUser.USER_NO == current_user.USER_NO,
-    ).all()
+    # AvatarUser와 Avatar 조인하여 쿼리
+    query = db.query(Avatar, AvatarUser). \
+        outerjoin(AvatarUser, (AvatarUser.AVATAR_NO == Avatar.AVATAR_NO) & (AvatarUser.USER_NO == current_user.USER_NO))
 
-    return avatars
+    avatars = []
+    for avatar, avatar_user in query.all():
+        avatars.append({
+            "IS_EQUIP": avatar_user.IS_EQUIP if avatar_user else False,
+            "AVATAR_NO": avatar.AVATAR_NO,
+            "AVATAR_NM": avatar.AVATAR_NM,
+            "AVATAR_TYPE": avatar.AVATAR_TYPE,
+            "IS_OWNED": avatar_user is not None  # 사용자가 보유하고 있으면 True
+        })
+    return {
+        "USER_NM": "노련한 서리태",  # 이 부분은 현재 사용자의 이름을 추가하는 예시입니다.
+        "avatars": avatars
+    }
 
 
 @router.put("/avatar")
-def set_equipped_avatar(avatar_user_no: int, db: Session = Depends(get_db),
+def set_equipped_avatar(avatar_no: int, db: Session = Depends(get_db),
                         current_user: User = Depends(get_current_user)):
+    # 선택한 아바타 조회
     avatar_user = db.query(AvatarUser).filter(
-        AvatarUser.AVATAR_USER_NO == avatar_user_no).first()
-    avatar = db.query(Avatar).filter(Avatar.AVATAR_NO == avatar_user.AVATAR_NO).first()
-    equipped_avatar = user_crud.get_equipped_avatar(db, current_user.USER_NO, avatar.AVATAR_TYPE)
+        AvatarUser.USER_NO == current_user.USER_NO,
+        AvatarUser.AVATAR_NO == avatar_no
+    ).first()
 
+    if not avatar_user:
+        raise HTTPException(status_code=404, detail="아바타를 찾을 수 없습니다.")
+
+    # 선택한 아바타의 타입 조회
+    avatar = db.query(Avatar).filter(Avatar.AVATAR_NO == avatar_user.AVATAR_NO).first()
+
+    # 현재 착용 중인 동일 타입의 아바타 조회
+    equipped_avatar = get_equipped_avatar(db, current_user.USER_NO, avatar.AVATAR_TYPE)
+
+    # 아바타 상태 변경
+    if equipped_avatar:
+        equipped_avatar.IS_EQUIP = False
     avatar_user.IS_EQUIP = True
-    equipped_avatar.IS_EQUIP = False
+
     db.commit()
 
     return {"message": "착용된 아바타 변경 성공"}
