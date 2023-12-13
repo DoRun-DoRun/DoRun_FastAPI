@@ -12,7 +12,8 @@ from database import get_db
 from domain.challenge import challenge_crud
 from domain.desc.utils import random_user
 from domain.user.user_schema import CreateUser, UpdateUser, GetUser
-from models import User, SignType, UserSetting, AvatarUser, ChallengeStatusType, AvatarType, Avatar
+from models import User, SignType, UserSetting, AvatarUser, ChallengeStatusType, AvatarType, Avatar, ChallengeMaster, \
+    ChallengeUser, InviteAcceptType
 
 from datetime import datetime, timedelta
 
@@ -152,7 +153,12 @@ def get_user(db: Session, current_user: User):
     if not equipped_avatar_user:
         raise HTTPException(status_code=400, detail="착용된 아바타를 찾을 수 없습니다.")
 
-    challenges = challenge_crud.get_challenge_masters_by_user(db, current_user)
+    challenges = db.query(ChallengeMaster). \
+        join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO). \
+        filter(ChallengeUser.USER_NO == current_user.USER_NO,
+               ChallengeUser.ACCEPT_STATUS == InviteAcceptType.ACCEPTED,
+               ChallengeMaster.DELETE_YN == False).all()
+
     status_counts = Counter(challenge.CHALLENGE_STATUS for challenge in challenges)
 
     return GetUser(USER_NM=current_user.USER_NM, USER_CHARACTER_NO=equipped_avatar_user.AVATAR_USER_NO,

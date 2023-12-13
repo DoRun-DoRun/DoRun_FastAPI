@@ -27,12 +27,12 @@ def invite_friend(uid: int, db: Session = Depends(get_db),
         ),
         Friend.ACCEPT_STATUS != InviteAcceptType.DECLINED
     ).first()
+    if existing_request:
+        if existing_request.ACCEPT_STATUS == InviteAcceptType.ACCEPTED:
+            raise HTTPException(status_code=404, detail="이미 친구인 상태입니다.")
 
-    if existing_request.ACCEPT_STATUS == InviteAcceptType.ACCEPTED:
-        raise HTTPException(status_code=404, detail="이미 친구인 상태입니다.")
-
-    if existing_request.ACCEPT_STATUS == InviteAcceptType.PENDING:
-        raise HTTPException(status_code=404, detail="이미 친구요청이 보내진 상태입니다.")
+        if existing_request.ACCEPT_STATUS == InviteAcceptType.PENDING:
+            raise HTTPException(status_code=404, detail="이미 친구요청이 보내진 상태입니다.")
 
     # 새로운 친구 요청 생성
     db_friend = Friend(SENDER_NO=current_user.USER_NO, RECIPIENT_NO=recipient_user.USER_NO)
@@ -54,13 +54,20 @@ def get_friend_list(db: Session = Depends(get_db), current_user: User = Depends(
     accepted_friends = []
 
     for record in friend_records:
-        friend_user_no = record.SENDER_NO if record.RECIPIENT_NO == current_user.USER_NO else record.RECIPIENT_NO
+        # 친구의 사용자 번호 확인
+        friend_user_no = record.RECIPIENT_NO if record.SENDER_NO == current_user.USER_NO else record.SENDER_NO
         friend_user = db.query(User).filter(User.USER_NO == friend_user_no).first()
 
         if friend_user:
-            friend_data = {"UID": friend_user.UID, "USER_NM": friend_user.USER_NM}
-            if record.ACCEPT_STATUS == InviteAcceptType.PENDING:
+            friend_data = {
+                "UID": friend_user.UID,
+                "USER_NM": friend_user.USER_NM,
+                "FRIEND_NO": record.FRIEND_NO  # 친구의 사용자 번호 추가
+            }
+            # PENDING 상태이고, 현재 사용자가 수신자인 경우
+            if record.ACCEPT_STATUS == InviteAcceptType.PENDING and record.RECIPIENT_NO == current_user.USER_NO:
                 pending_friends.append(friend_data)
+            # ACCEPTED 상태인 경우
             elif record.ACCEPT_STATUS == InviteAcceptType.ACCEPTED:
                 accepted_friends.append(friend_data)
 

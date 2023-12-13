@@ -20,20 +20,6 @@ from models import ChallengeMaster, User, TeamWeeklyGoal, ChallengeUser, PersonD
 
 
 # 기능 함수
-# 진행중인 Challenge Master을 Current User으로 가져오기
-def get_challenge_masters_by_user(db: Session, current_user: User) -> ChallengeMaster:
-    challenges = db.query(ChallengeMaster). \
-        join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO). \
-        filter(ChallengeUser.USER_NO == current_user.USER_NO,
-               ChallengeMaster.CHALLENGE_STATUS != ChallengeStatusType.COMPLETE,
-               ChallengeMaster.DELETE_YN == False).all()
-
-    if not challenges:
-        return []
-
-    return challenges
-
-
 # Challenge Master 객체를 Challenge Mst No로 가져오기
 def get_challenge_master_by_id(db: Session, challenge_mst_no: int) -> ChallengeMaster:
     challenge = db.query(ChallengeMaster).filter(ChallengeMaster.CHALLENGE_MST_NO == challenge_mst_no).first()
@@ -409,7 +395,15 @@ def start_challenge(db: Session, challenge_mst_no: int, current_user: User):
 
 
 def get_challenge_user_list(db: Session, current_user: User):
-    challenges = get_challenge_masters_by_user(db, current_user)
+    challenges = db.query(ChallengeMaster). \
+        join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO). \
+        filter(ChallengeUser.USER_NO == current_user.USER_NO,
+               ChallengeMaster.CHALLENGE_STATUS == ChallengeStatusType.PROGRESS,
+               ChallengeUser.ACCEPT_STATUS == InviteAcceptType.ACCEPTED,
+               ChallengeMaster.DELETE_YN == False).all()
+
+    if not challenges:
+        return []
 
     twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
 
