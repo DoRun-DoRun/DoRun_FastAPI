@@ -11,5 +11,5 @@ class PersonGoalPydantic(BaseModel):
 class CreateDiary(BaseModel):
     CHALLENGE_USER_NO: int
     IMAGE_FILE_NM: str
-    COMMENTS: str
+    COMMENT: str
     PERSON_GOAL: List[PersonGoalPydantic]

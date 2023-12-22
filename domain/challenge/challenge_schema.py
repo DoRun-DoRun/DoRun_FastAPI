@@ -16,7 +16,7 @@ class DiaryPydantic(BaseModel):
     DAILY_COMPLETE_NO: int
     IMAGE_FILE_NM: str
     INSERT_DT: datetime
-    COMMENTS: str
+    COMMENT: str
 
     class Config:
         from_attributes = True
