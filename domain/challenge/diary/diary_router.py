@@ -54,17 +54,16 @@ def create_diary(_create_diary: CreateDiary, db: Session = Depends(get_db),
     if challenge_user.USER_NO != current_user.USER_NO:
         raise HTTPException(status_code=401, detail="현재 접속중인 유저와 Challenge_user가 다릅니다.")
 
-    today = datetime.utcnow().date()
-    existing_diary = db.query(PersonDailyGoalComplete).filter(
-        and_(
-            PersonDailyGoalComplete.CHALLENGE_USER == challenge_user,
-            func.date(PersonDailyGoalComplete.INSERT_DT) == today
-        )
-    ).first()
-
-    if existing_diary:
-        raise HTTPException(status_code=400, detail="오늘 이미 일기가 작성되었습니다.")
-
+    # today = datetime.utcnow().date()
+    # existing_diary = db.query(PersonDailyGoalComplete).filter(
+    #     and_(
+    #         PersonDailyGoalComplete.CHALLENGE_USER == challenge_user,
+    #         func.date(PersonDailyGoalComplete.INSERT_DT) == today
+    #     )
+    # ).first()
+    #
+    # if existing_diary:
+    #     raise HTTPException(status_code=400, detail="오늘 이미 일기가 작성되었습니다.")
 
     db_diary = PersonDailyGoalComplete(
         IMAGE_FILE_NM=_create_diary.IMAGE_FILE_NM,
