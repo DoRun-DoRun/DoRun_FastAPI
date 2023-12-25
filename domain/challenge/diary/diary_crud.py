@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from domain.challenge.challenge_crud import get_challenge_user_by_challenge_user_no
 from models import PersonDailyGoalComplete
 
 

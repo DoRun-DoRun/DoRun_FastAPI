@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from domain.challenge import challenge_crud
+from domain.challenge.challenge_crud import get_challenge_user_by_challenge_user_no
 from domain.challenge.diary import diary_crud
 from domain.challenge.diary.diary_schema import CreateDiary
 from domain.desc.utils import select_randomly_with_probability, RewardType, get_random_item, \
@@ -31,6 +32,9 @@ def post_emoji(daily_complete_no: int, emoji: str, db: Session = Depends(get_db)
         USER_NO=current_user.USER_NO
     ).first()
 
+    if not challenge_user:
+        raise HTTPException(status_code=404, detail="챌린지 유저를 찾을 수 없습니다.")
+
     db_emoji = DailyCompleteUser(EMOJI=emoji, DAILY_COMPLETE_NO=daily_complete_no, CHALLENGE_USER=challenge_user)
     db.add(db_emoji)
 
@@ -43,7 +47,9 @@ def post_emoji(daily_complete_no: int, emoji: str, db: Session = Depends(get_db)
 def get_diary(daily_complete_no: int, db: Session = Depends(get_db)):
     diary = diary_crud.get_diary(db, daily_complete_no)
 
-    return diary
+    challenge_user = get_challenge_user_by_challenge_user_no(db, challenge_user_no=diary.CHALLENGE_USER_NO)
+
+    return {"diary": diary, "user": challenge_user.USER.USER_NM}
 
 
 @router.post("")

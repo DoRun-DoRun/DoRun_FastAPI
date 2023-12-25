@@ -1,9 +1,10 @@
 from datetime import datetime, date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 from models import ChallengeStatusType, InviteAcceptType, ItemType
+from enum import Enum
 
 
 class ChallengeParticipant(BaseModel):
@@ -14,9 +15,6 @@ class ChallengeParticipant(BaseModel):
 
 class DiaryPydantic(BaseModel):
     DAILY_COMPLETE_NO: int
-    IMAGE_FILE_NM: str
-    INSERT_DT: datetime
-    COMMENT: str
 
     class Config:
         from_attributes = True
@@ -41,9 +39,10 @@ class ChallengeUserList(BaseModel):
 
 
 class ChallengeUserListModel(BaseModel):
-    CHALLENGE_MST_NO: int
-    CHALLENGE_MST_NM: str
-    challenge_user: List[ChallengeUserList]
+    CHALLENGE_MST_NO: Optional[int] = Field(None)
+    CHALLENGE_MST_NM: Optional[str] = Field(None)
+    challenge_user: Optional[List[ChallengeUserList]] = Field(None)
+    total_page: Optional[int] = Field(0)
 
 
 class ChallengeMST(BaseModel):
@@ -134,13 +133,20 @@ class PutChallengeInvite(BaseModel):
     ACCEPT_STATUS: InviteAcceptType
 
 
+class UserStatus(Enum):
+    SLEEPING = "자는중"
+    WALKING = "걷는중"
+    RUNNING = "뛰는중"
+
+
 class GetChallengeUserDetail(BaseModel):
     CHALLENGE_USER_NO: int
     USER_NM: str
     CHARACTER_NO: int
-    PROGRESS: float
+    # PROGRESS: float
     COMMENT: str
     ITEM: List[ItemPydantic]
+    STATUS: UserStatus
 
 
 class EmojiUser(BaseModel):
@@ -149,10 +155,11 @@ class EmojiUser(BaseModel):
 
 
 class GetChallengeHistory(BaseModel):
-    CHALLENGE_MST_NO: int
-    CHALLENGE_MST_NM: str
+    CHALLENGE_MST_NO: Optional[int]
+    CHALLENGE_MST_NM: Optional[str]
     IMAGE_FILE_NM: Optional[str]
     EMOJI: Optional[List[EmojiUser]]
     COMMENT: Optional[str]
     personGoal: Optional[List[PersonDailyGoalPydantic]]
     teamGoal: Optional[TeamWeeklyGoalPydantic]
+    total_size: int

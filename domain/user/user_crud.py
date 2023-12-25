@@ -161,7 +161,7 @@ def get_user(db: Session, current_user: User):
 
     status_counts = Counter(challenge.CHALLENGE_STATUS for challenge in challenges)
 
-    return GetUser(USER_NM=current_user.USER_NM, USER_CHARACTER_NO=equipped_avatar_user.AVATAR_USER_NO,
+    return GetUser(USER_NM=current_user.USER_NM, USER_CHARACTER_NO=equipped_avatar_user.AVATAR_NO,
                    COMPLETE=status_counts[ChallengeStatusType.COMPLETE],
                    PROGRESS=status_counts[ChallengeStatusType.PROGRESS],
                    PENDING=status_counts[ChallengeStatusType.PENDING])

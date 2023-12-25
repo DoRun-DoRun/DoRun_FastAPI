@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.params import Query
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -68,16 +69,20 @@ def challenge_delete(challenge_mst_no: int, db: Session = Depends(get_db),
     return message
 
 
-@router.get("/user/list", response_model=list[challenge_schema.ChallengeUserListModel])
-def get_challenge_user_list(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    challenge_user_list_data = challenge_crud.get_challenge_user_list(db, current_user)
+@router.get("/user/list", response_model=challenge_schema.ChallengeUserListModel)
+def get_challenge_user_list(db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
+                            page: int = Query(1, description="페이지 번호")):
+    if page < 1:
+        raise HTTPException(status_code=404, detail="페이지 숫자는 0보다 커야합니다.")
+    challenge_user_list_data = challenge_crud.get_challenge_user_list(db, current_user, page)
 
     return challenge_user_list_data
 
 
 @router.get("/user/{challenge_user_no}", response_model=challenge_schema.GetChallengeUserDetail)
-def get_challenge_user_detail(challenge_user_no: int, db: Session = Depends(get_db)):
-    challenge_user_detail = challenge_crud.get_challenge_user_detail(db, challenge_user_no)
+def get_challenge_user_detail(challenge_user_no: int, db: Session = Depends(get_db),
+                              current_user: User = Depends(get_current_user)):
+    challenge_user_detail = challenge_crud.get_challenge_user_detail(db, challenge_user_no, current_user)
 
     return challenge_user_detail
 
@@ -116,8 +121,9 @@ def challenge_invite(put_challenge_invite: PutChallengeInvite, db: Session = Dep
     return {"message": "초대상태 수정완료", "challenge_user": challenge_user}
 
 
-@router.get("/history", response_model=list[challenge_schema.GetChallengeHistory])
-def get_challenge_history_list(current_day: datetime, db: Session = Depends(get_db),
+@router.get("/history", response_model=challenge_schema.GetChallengeHistory)
+def get_challenge_history_list(current_day: datetime, page: int = Query(1, description="페이지 번호"),
+                               db: Session = Depends(get_db),
                                _current_user: User = Depends(get_current_user)):
-    challenge_history_list = challenge_crud.get_challenge_history_list(db, current_day, _current_user)
+    challenge_history_list = challenge_crud.get_challenge_history_list(db, current_day, _current_user, page)
     return challenge_history_list

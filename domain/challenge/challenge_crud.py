@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, date
 import random
+from math import ceil
 
 from fastapi import HTTPException
 from sqlalchemy import func, Integer
@@ -10,7 +11,7 @@ from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticip
     PersonDailyGoalPydantic, \
     TeamWeeklyGoalPydantic, AdditionalGoalPydantic, ChallengeList, ChallengeInvite, \
     ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser, DiaryPydantic, \
-    ItemPydantic, ChallengeMSTProgress
+    ItemPydantic, ChallengeMSTProgress, UserStatus
 from domain.desc.utils import calculate_challenge_progress
 from domain.user import user_crud
 from domain.user.user_crud import get_user_by_uid, get_equipped_avatar
@@ -186,21 +187,24 @@ def get_challenge_user_by_challenge_user_no(db: Session, challenge_user_no: int)
 
 
 # 지정된 날짜에 활성화된 챌린지 중, 특정 유저가 참여하고 있는 챌린지 조회
-def get_active_challenges_for_user(db: Session, user_no: int, specified_date: date):
-    user_challenges = db.query(ChallengeMaster).join(
+def get_active_challenges_for_user(db: Session, user_no: int, specified_date: date, page: int):
+    page_size = 1
+    offset = (page - 1) * page_size
+
+    user_challenge = db.query(ChallengeMaster).join(
         ChallengeUser,
         ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO
     ).filter(
         ChallengeUser.USER_NO == user_no,
         ChallengeMaster.START_DT <= specified_date,
         ChallengeMaster.END_DT >= specified_date
-    ).all()
+    ).offset(offset).limit(page_size).first()
 
-    if not user_challenges:
+    if not user_challenge:
         # raise HTTPException(status_code=404, detail="해당 날짜에 챌린지 기록이 존재하지 않습니다.")
-        return []
+        return None
 
-    return user_challenges
+    return user_challenge
 
 
 # 라우터 함수
@@ -394,124 +398,180 @@ def start_challenge(db: Session, challenge_mst_no: int, current_user: User):
     return {"message": "챌린지가 시작되었습니다"}
 
 
-def get_challenge_user_list(db: Session, current_user: User):
-    challenges = db.query(ChallengeMaster). \
+def get_challenge_user_list(db: Session, current_user: User, page: int):
+    page_size = 1
+    offset = (page - 1) * page_size
+
+    # 총 항목 수 계산
+    total_items = db.query(ChallengeMaster). \
         join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO). \
         filter(ChallengeUser.USER_NO == current_user.USER_NO,
                ChallengeMaster.CHALLENGE_STATUS == ChallengeStatusType.PROGRESS,
                ChallengeUser.ACCEPT_STATUS == InviteAcceptType.ACCEPTED,
-               ChallengeMaster.DELETE_YN == False).all()
+               ChallengeMaster.DELETE_YN == False).count()
 
-    if not challenges:
-        return []
+    # 총 페이지 수 계산
+    total_pages = ceil(total_items / page_size)
+
+    challenge = db.query(ChallengeMaster). \
+        join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO). \
+        filter(ChallengeUser.USER_NO == current_user.USER_NO,
+               ChallengeMaster.CHALLENGE_STATUS == ChallengeStatusType.PROGRESS,
+               ChallengeUser.ACCEPT_STATUS == InviteAcceptType.ACCEPTED,
+               ChallengeMaster.DELETE_YN == False) \
+        .offset(offset) \
+        .limit(page_size) \
+        .first()
+
+    if not challenge:
+        return {}
 
     twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
 
-    challenge_lists = []
     # ChallengeUserList 정보 조회
-    for challenge in challenges:
-        challenge_users = get_challenge_users_by_mst_no(db, challenge.CHALLENGE_MST_NO)
+    challenge_users = get_challenge_users_by_mst_no(db, challenge.CHALLENGE_MST_NO)
 
-        challenge_user_lists = []
-        for challenge_user in challenge_users:
-            # 각 사용자별로 Character 및 Pet 정보 조회
-            character = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.CHARACTER)
+    challenge_user_lists = []
+    for challenge_user in challenge_users:
+        # 각 사용자별로 Character 및 Pet 정보 조회
+        character = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.CHARACTER)
 
-            if not character:
-                raise HTTPException(status_code=404, detail="캐릭터 정보를 찾을 수 없습니다.")
+        if not character:
+            raise HTTPException(status_code=404, detail="캐릭터 정보를 찾을 수 없습니다.")
 
-            pet = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.PET)
+        pet = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.PET)
 
-            diaries = db.query(PersonDailyGoalComplete).filter(
-                PersonDailyGoalComplete.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
-                PersonDailyGoalComplete.INSERT_DT >= twenty_four_hours_ago
-            ).all()
+        diaries = db.query(PersonDailyGoalComplete).filter(
+            PersonDailyGoalComplete.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
+            PersonDailyGoalComplete.INSERT_DT >= twenty_four_hours_ago
+        ).all()
 
-            challenge_user_list = ChallengeUserList(
-                CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
-                PROGRESS=calculate_user_progress(db, challenge_user.CHALLENGE_USER_NO),
-                CHARACTER_NO=character.AVATAR_NO,
-                PET_NO=pet.AVATAR_NO if pet else None,
-                DIARIES=[DiaryPydantic.model_validate(diary) for diary in diaries],
-            )
-            challenge_user_lists.append(challenge_user_list)
-
-        challenge_lists.append(ChallengeUserListModel(
-            CHALLENGE_MST_NO=challenge.CHALLENGE_MST_NO,
-            CHALLENGE_MST_NM=challenge.CHALLENGE_MST_NM,
-            challenge_user=challenge_user_lists)
+        challenge_user_list = ChallengeUserList(
+            CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
+            PROGRESS=calculate_user_progress(db, challenge_user.CHALLENGE_USER_NO),
+            CHARACTER_NO=character.AVATAR_NO,
+            PET_NO=pet.AVATAR_NO if pet else None,
+            DIARIES=[DiaryPydantic.model_validate(diary) for diary in diaries],
         )
+        challenge_user_lists.append(challenge_user_list)
 
-    return challenge_lists
+    return ChallengeUserListModel(
+        CHALLENGE_MST_NO=challenge.CHALLENGE_MST_NO,
+        CHALLENGE_MST_NM=challenge.CHALLENGE_MST_NM,
+        challenge_user=challenge_user_lists,
+        total_page=total_pages)
 
 
-def get_challenge_user_detail(db: Session, challenge_user_no: int):
-    challenge_user = get_challenge_user_by_challenge_user_no(db, challenge_user_no)
-    user = db.query(User).filter(User.USER_NO == challenge_user.USER_NO).first()
-    character = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.CHARACTER)
+def get_challenge_user_detail(db: Session, challenge_user_no: int, current_user: User):
+    target_user = get_challenge_user_by_challenge_user_no(db, challenge_user_no)
+    used_user = get_challenge_user_by_user_no(db, target_user.CHALLENGE_MST_NO, current_user.USER_NO)
+
+    character = get_equipped_avatar(db, target_user.USER_NO, AvatarType.CHARACTER)
+
     items = db.query(Item).all()
     item_list = []
-    for item in items:
-        item_user = db.query(ItemUser).filter(
-            ItemUser.CHALLENGE_USER_NO == challenge_user_no,
-            ItemUser.ITEM_NO == item.ITEM_NO).first()
-        item_list.append(ItemPydantic(ITEM_NO=item.ITEM_NO, ITEM_NM=item.ITEM_NM, COUNT=item_user.COUNT,
-                                      ITEM_USER_NO=item_user.ITEM_USER_NO))
+
+    one_week_ago = datetime.utcnow() - timedelta(days=7)
+
+    diaries = db.query(PersonDailyGoalComplete).filter(
+        PersonDailyGoalComplete.CHALLENGE_USER_NO == target_user.CHALLENGE_USER_NO,
+        PersonDailyGoalComplete.INSERT_DT >= one_week_ago
+    ).all()
+
+    diary_count = len(diaries)
+    user_status = UserStatus.SLEEPING
+    if diary_count == 1:
+        user_status = UserStatus.WALKING  # '걷고 있음'
+    elif diary_count >= 3:
+        user_status = UserStatus.RUNNING  # '뛰고 있음'
+
+    if used_user != target_user:
+        for item in items:
+            item_user = db.query(ItemUser).filter(
+                ItemUser.CHALLENGE_USER_NO == used_user.CHALLENGE_USER_NO,
+                ItemUser.ITEM_NO == item.ITEM_NO
+            ).first()
+
+            item_list.append(ItemPydantic(
+                ITEM_NO=item.ITEM_NO,
+                ITEM_NM=item.ITEM_NM,
+                COUNT=item_user.COUNT if item_user else 0,
+                ITEM_USER_NO=item_user.ITEM_USER_NO if item_user else -1
+            ))
 
     return GetChallengeUserDetail(
-        CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
-        USER_NM=user.USER_NM,
+        CHALLENGE_USER_NO=target_user.CHALLENGE_USER_NO,
+        USER_NM=target_user.USER.USER_NM,
         CHARACTER_NO=character.AVATAR_NO,
-        PROGRESS=calculate_user_progress(db, challenge_user_no),
-        COMMENT=challenge_user.COMMENT,
-        ITEM=item_list
+        # PROGRESS=calculate_user_progress(db, challenge_user_no),
+        COMMENT=target_user.COMMENT,
+        ITEM=item_list,
+        STATUS=user_status
     )
 
 
-def get_challenge_history_list(db: Session, current_day: datetime, _current_user: User):
-    challenges = get_active_challenges_for_user(db, _current_user.USER_NO, current_day)
+def get_challenge_history_list(db: Session, current_day: datetime, _current_user: User, page: int):
+    challenge = get_active_challenges_for_user(db, _current_user.USER_NO, current_day, page)
 
-    challenge_history_list = []
-    for challenge in challenges:
-        challenge_user = get_challenge_user_by_user_no(db, challenge.CHALLENGE_MST_NO, _current_user.USER_NO)
-        daily_complete = db.query(PersonDailyGoalComplete).filter(
-            PersonDailyGoalComplete.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
-            PersonDailyGoalComplete.INSERT_DT >= current_day,
-            PersonDailyGoalComplete.INSERT_DT <= current_day + timedelta(days=1)
-        ).first()
-        daily_complete_users_list = []
-        image_file = ''
-        comment = ''
+    if not challenge:
+        return GetChallengeHistory(
+            CHALLENGE_MST_NO=None,
+            CHALLENGE_MST_NM=None,
+            IMAGE_FILE_NM=None,
+            EMOJI=None,
+            COMMENT=None,
+            personGoal=None,
+            teamGoal=None,
+            total_size=0
+        )
 
-        if daily_complete:
-            image_file = daily_complete.IMAGE_FILE_NM
-            comment = daily_complete.COMMENT
-            daily_complete_users = db.query(DailyCompleteUser).filter(
-                DailyCompleteUser.DAILY_COMPLETE_NO == daily_complete.DAILY_COMPLETE_NO,
-            ).all()
-            for daily_complete_user in daily_complete_users:
-                daily_complete_users_list.append(
-                    EmojiUser(CHALLENGE_USER_NO=daily_complete_user.CHALLENGE_USER_NO, EMOJI=daily_complete_user.EMOJI))
+    total_size = db.query(ChallengeMaster).join(
+        ChallengeUser,
+        ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO
+    ).filter(
+        ChallengeUser.USER_NO == _current_user.USER_NO,
+        ChallengeMaster.START_DT <= current_day,
+        ChallengeMaster.END_DT >= current_day
+    ).count()
 
-        person_goal = get_person_goal_by_user(db, challenge_user.CHALLENGE_USER_NO, current_day)
-        team_goal = db.query(TeamWeeklyGoal).join(ChallengeUser).filter(
-            ChallengeUser.CHALLENGE_MST_NO == challenge.CHALLENGE_MST_NO,
-            TeamWeeklyGoal.START_DT <= current_day,  # 현재 시간 이후로 시작하는 것을 포함
-            TeamWeeklyGoal.END_DT >= current_day,  # 현재 시간 이전에 종료하는 것을 배제
-            challenge_user.CHALLENGE_USER_NO == TeamWeeklyGoal.CHALLENGE_USER_NO
-        ).first()
+    challenge_user = get_challenge_user_by_user_no(db, challenge.CHALLENGE_MST_NO, _current_user.USER_NO)
+    daily_complete = db.query(PersonDailyGoalComplete).filter(
+        PersonDailyGoalComplete.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
+        PersonDailyGoalComplete.INSERT_DT >= current_day,
+        PersonDailyGoalComplete.INSERT_DT <= current_day + timedelta(days=1)
+    ).first()
+    daily_complete_users_list = []
+    image_file = ''
+    comment = ''
 
-        challenge_history_list.append(GetChallengeHistory(
-            CHALLENGE_MST_NO=challenge.CHALLENGE_MST_NO,
-            CHALLENGE_MST_NM=challenge.CHALLENGE_MST_NM,
-            IMAGE_FILE_NM=image_file,
-            EMOJI=daily_complete_users_list,
-            COMMENT=comment,
-            personGoal=person_goal,
-            teamGoal=team_goal
-        ))
+    if daily_complete:
+        image_file = daily_complete.IMAGE_FILE_NM
+        comment = daily_complete.COMMENT
+        daily_complete_users = db.query(DailyCompleteUser).filter(
+            DailyCompleteUser.DAILY_COMPLETE_NO == daily_complete.DAILY_COMPLETE_NO,
+        ).all()
+        for daily_complete_user in daily_complete_users:
+            daily_complete_users_list.append(
+                EmojiUser(CHALLENGE_USER_NO=daily_complete_user.CHALLENGE_USER_NO, EMOJI=daily_complete_user.EMOJI))
 
-    return challenge_history_list
+    person_goal = get_person_goal_by_user(db, challenge_user.CHALLENGE_USER_NO, current_day)
+    team_goal = db.query(TeamWeeklyGoal).join(ChallengeUser).filter(
+        ChallengeUser.CHALLENGE_MST_NO == challenge.CHALLENGE_MST_NO,
+        TeamWeeklyGoal.START_DT <= current_day,  # 현재 시간 이후로 시작하는 것을 포함
+        TeamWeeklyGoal.END_DT >= current_day,  # 현재 시간 이전에 종료하는 것을 배제
+        challenge_user.CHALLENGE_USER_NO == TeamWeeklyGoal.CHALLENGE_USER_NO
+    ).first()
+
+    return GetChallengeHistory(
+        CHALLENGE_MST_NO=challenge.CHALLENGE_MST_NO,
+        CHALLENGE_MST_NM=challenge.CHALLENGE_MST_NM,
+        IMAGE_FILE_NM=image_file,
+        EMOJI=daily_complete_users_list,
+        COMMENT=comment,
+        personGoal=person_goal,
+        teamGoal=team_goal,
+        total_size=total_size
+    )
 
 
 # UID 정보를 가져와 CHALLENGE USER 업데이트 필요
