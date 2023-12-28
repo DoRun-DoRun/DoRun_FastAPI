@@ -126,7 +126,7 @@ class ChallengeUser(Base):
 
     CHALLENGE_USER_NO = Column(Integer, primary_key=True)
     ACCEPT_STATUS = Column(Enum(InviteAcceptType, name="InviteAcceptType", default=InviteAcceptType.PENDING))
-    COMMENT = Column(String, default="상태메시지를 설정해주세요")
+    COMMENT = Column(String)
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -158,20 +158,20 @@ class PersonDailyGoal(Base):
     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
 
 
-class TeamWeeklyGoal(Base):
-    __tablename__ = 'team_weekly_goal'
-
-    TEAM_NO = Column(Integer, primary_key=True)
-    TEAM_NM = Column(String, default="팀 목표를 입력해주세요")
-    IS_DONE = Column(Boolean, default=False)
-    START_DT = Column(DateTime)
-    END_DT = Column(DateTime)
-
-    INSERT_DT = Column(DateTime, default=datetime.utcnow)
-    MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    CHALLENGE_USER = relationship('ChallengeUser', backref="team_weekly_goal")
-    CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+# class TeamWeeklyGoal(Base):
+#     __tablename__ = 'team_weekly_goal'
+#
+#     TEAM_NO = Column(Integer, primary_key=True)
+#     TEAM_NM = Column(String, default="팀 목표를 입력해주세요")
+#     IS_DONE = Column(Boolean, default=False)
+#     START_DT = Column(DateTime)
+#     END_DT = Column(DateTime)
+#
+#     INSERT_DT = Column(DateTime, default=datetime.utcnow)
+#     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+#
+#     CHALLENGE_USER = relationship('ChallengeUser', backref="team_weekly_goal")
+#     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
 
 
 class AdditionalGoal(Base):
@@ -180,7 +180,7 @@ class AdditionalGoal(Base):
     ADDITIONAL_NO = Column(Integer, primary_key=True)
     ADDITIONAL_NM = Column(String)
     IS_DONE = Column(Boolean, default=False)
-    START_DT = Column(DateTime, default=datetime.utcnow)
+    START_DT = Column(DateTime, default=datetime.utcnow())
     END_DT = Column(DateTime, default=datetime.utcnow() + timedelta(hours=24))
     IMAGE_FILE_NM = Column(String)
 
@@ -193,7 +193,7 @@ class PersonDailyGoalComplete(Base):
 
     DAILY_COMPLETE_NO = Column(Integer, primary_key=True)
     IMAGE_FILE_NM = Column(String)
-    INSERT_DT = Column(DateTime, default=datetime.utcnow)
+    INSERT_DT = Column(DateTime, default=datetime.utcnow())
     COMMENT = Column(String)
 
     CHALLENGE_USER = relationship('ChallengeUser', backref="person_daily_goal_complete")
@@ -237,8 +237,8 @@ class ItemLog(Base):
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
 
     # ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
-    SENDER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
-    RECIPIENT_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
+    SENDER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO', ondelete='CASCADE'))
+    RECIPIENT_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO', ondelete='CASCADE'))
 
     ITEM_NO = Column(Integer, ForeignKey("item.ITEM_NO"))
 

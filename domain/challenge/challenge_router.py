@@ -27,10 +27,9 @@ def challenge_list(db: Session = Depends(get_db),
 
 
 @router.get("/detail/{challenge_mst_no}", response_model=challenge_schema.ChallengeDetail)
-def challenge_detail(challenge_mst_no: int, current_day: datetime, db: Session = Depends(get_db),
+def challenge_detail(challenge_mst_no: int, db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
-    _challenge = get_challenge_detail(db, user_no=_current_user.USER_NO, challenge_mst_no=challenge_mst_no,
-                                      current_day=current_day)
+    _challenge = get_challenge_detail(db, user_no=_current_user.USER_NO, challenge_mst_no=challenge_mst_no)
 
     return _challenge
 
@@ -41,6 +40,11 @@ def challenge_create(_challenge_create: challenge_schema.ChallengeCreate,
                      _current_user: User = Depends(get_current_user)):
     if len(_challenge_create.USERS_UID) > 6:
         raise HTTPException(status_code=404, detail="참가 가능한 최대 인원은 6명 입니다.")
+
+    _challenge_list = get_challenge_list(db, _current_user)
+
+    if len(_challenge_list["progress_challenges"])>= 3:
+        raise HTTPException(status_code=404, detail="참가 가능한 챌린지는 3개입니다.")
 
     challenge = challenge_crud.post_create_challenge(db, challenge_create=_challenge_create,
                                                      current_user=_current_user)
@@ -103,8 +107,9 @@ def put_challenge_user_detail(challenge_user_no: int, comment: str, db: Session 
 
 
 @router.get("/invite/{challenge_mst_no}", response_model=ChallengeInvite)
-def challenge_invite(challenge_mst_no: int, db: Session = Depends(get_db)):
-    challenge_info = get_challenge_invite(db, challenge_mst_no)
+def challenge_invite(challenge_mst_no: int, db: Session = Depends(get_db),
+                     _current_user: User = Depends(get_current_user)):
+    challenge_info = get_challenge_invite(db, challenge_mst_no, _current_user)
 
     return challenge_info
 
@@ -112,13 +117,18 @@ def challenge_invite(challenge_mst_no: int, db: Session = Depends(get_db)):
 @router.put("/invite/{challenge_mst_no}")
 def challenge_invite(put_challenge_invite: PutChallengeInvite, db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
+    _challenge_list = get_challenge_list(db, _current_user)
+
+    if len(_challenge_list["progress_challenges"]) >= 3:
+        raise HTTPException(status_code=404, detail="참가 가능한 챌린지는 3개입니다.")
+
     challenge_user = get_challenge_user_by_user_no(db, put_challenge_invite.CHALLENGE_MST_NO, _current_user.USER_NO)
     challenge_user.ACCEPT_STATUS = put_challenge_invite.ACCEPT_STATUS
     db.commit()
 
     db.refresh(challenge_user)
 
-    return {"message": "초대상태 수정완료", "challenge_user": challenge_user}
+    return {"message": "초대상태 수정완료", "challenge_user": challenge_user, "status": put_challenge_invite.ACCEPT_STATUS}
 
 
 @router.get("/history", response_model=challenge_schema.GetChallengeHistory)

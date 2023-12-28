@@ -48,7 +48,7 @@ class RewardType(enum.Enum):
 
 def select_randomly_with_probability():
     choices = list(RewardType)
-    probabilities = [5, 45, 50]
+    probabilities = [33, 34, 33]
     selected = random.choices(choices, weights=probabilities, k=1)[0]
 
     return selected

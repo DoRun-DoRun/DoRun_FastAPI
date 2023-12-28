@@ -67,6 +67,7 @@ class ChallengeList(BaseModel):
 
 
 class ChallengeInvite(ChallengeMST):
+    IS_OWNER: bool
     PARTICIPANTS: List[ChallengeParticipant]
 
 
@@ -79,14 +80,14 @@ class PersonDailyGoalPydantic(BaseModel):
         from_attributes = True
 
 
-class TeamWeeklyGoalPydantic(BaseModel):
-    TEAM_NO: int
-    TEAM_NM: str
-    IS_DONE: bool
-    CHALLENGE_USER_NO: int
-
-    class Config:
-        from_attributes = True
+# class TeamWeeklyGoalPydantic(BaseModel):
+#     TEAM_NO: int
+#     TEAM_NM: str
+#     IS_DONE: bool
+#     CHALLENGE_USER_NO: int
+#
+#     class Config:
+#         from_attributes = True
 
 
 class AdditionalGoalPydantic(BaseModel):
@@ -98,6 +99,7 @@ class AdditionalGoalPydantic(BaseModel):
     END_DT: datetime
     CHALLENGE_USER_NO: int
     CHALLENGE_USER_NN: str
+    IS_MINE: bool
 
     class Config:
         from_attributes = True
@@ -105,7 +107,8 @@ class AdditionalGoalPydantic(BaseModel):
 
 class ChallengeDetail(BaseModel):
     CHALLENGE_USER_NO: int
-    teamGoal: List[TeamWeeklyGoalPydantic]
+    CHALLENGE_STATUS: ChallengeStatusType
+    # teamGoal: List[TeamWeeklyGoalPydantic]
     additionalGoal: List[AdditionalGoalPydantic]
 
 
@@ -147,6 +150,7 @@ class GetChallengeUserDetail(BaseModel):
     COMMENT: str
     ITEM: List[ItemPydantic]
     STATUS: UserStatus
+    IS_ME: bool
 
 
 class EmojiUser(BaseModel):
@@ -161,5 +165,5 @@ class GetChallengeHistory(BaseModel):
     EMOJI: Optional[List[EmojiUser]]
     COMMENT: Optional[str]
     personGoal: Optional[List[PersonDailyGoalPydantic]]
-    teamGoal: Optional[TeamWeeklyGoalPydantic]
+    # teamGoal: Optional[TeamWeeklyGoalPydantic]
     total_size: int

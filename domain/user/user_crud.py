@@ -147,9 +147,13 @@ def update_user(user: UpdateUser, db: Session, current_user: User):
 
 def get_user(db: Session, current_user: User):
     equipped_avatar_user = db.query(AvatarUser) \
-        .filter(AvatarUser.USER_NO == current_user.USER_NO) \
-        .filter(AvatarUser.IS_EQUIP == True) \
-        .first()
+        .join(Avatar, Avatar.AVATAR_NO == AvatarUser.AVATAR_NO) \
+        .filter(
+        AvatarUser.USER_NO == current_user.USER_NO,
+        AvatarUser.IS_EQUIP == True,
+        Avatar.AVATAR_TYPE == AvatarType.CHARACTER
+    ).first()
+
     if not equipped_avatar_user:
         raise HTTPException(status_code=400, detail="착용된 아바타를 찾을 수 없습니다.")
 

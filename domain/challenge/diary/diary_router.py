@@ -27,10 +27,7 @@ def post_emoji(daily_complete_no: int, emoji: str, db: Session = Depends(get_db)
                current_user: User = Depends(get_current_user)):
     diary = diary_crud.get_diary(db, daily_complete_no)
 
-    challenge_user = db.query(ChallengeUser).filter_by(
-        CHALLENGE_USER_NO=diary.CHALLENGE_USER_NO,
-        USER_NO=current_user.USER_NO
-    ).first()
+    challenge_user = challenge_crud.get_challenge_user_by_user_no(db, diary.CHALLENGE_USER.CHALLENGE_MST_NO, current_user.USER_NO)
 
     if not challenge_user:
         raise HTTPException(status_code=404, detail="챌린지 유저를 찾을 수 없습니다.")
@@ -60,16 +57,16 @@ def create_diary(_create_diary: CreateDiary, db: Session = Depends(get_db),
     if challenge_user.USER_NO != current_user.USER_NO:
         raise HTTPException(status_code=401, detail="현재 접속중인 유저와 Challenge_user가 다릅니다.")
 
-    # today = datetime.utcnow().date()
-    # existing_diary = db.query(PersonDailyGoalComplete).filter(
-    #     and_(
-    #         PersonDailyGoalComplete.CHALLENGE_USER == challenge_user,
-    #         func.date(PersonDailyGoalComplete.INSERT_DT) == today
-    #     )
-    # ).first()
-    #
-    # if existing_diary:
-    #     raise HTTPException(status_code=400, detail="오늘 이미 일기가 작성되었습니다.")
+    today = datetime.utcnow().date()
+    existing_diary = db.query(PersonDailyGoalComplete).filter(
+        and_(
+            PersonDailyGoalComplete.CHALLENGE_USER == challenge_user,
+            func.date(PersonDailyGoalComplete.INSERT_DT) == today
+        )
+    ).first()
+
+    if existing_diary:
+        raise HTTPException(status_code=400, detail="오늘 이미 일기가 작성되었습니다.")
 
     db_diary = PersonDailyGoalComplete(
         IMAGE_FILE_NM=_create_diary.IMAGE_FILE_NM,
@@ -88,7 +85,7 @@ def create_diary(_create_diary: CreateDiary, db: Session = Depends(get_db),
 
     # 아바타 5%, 아이템 45%, 꽝 50%
     select_item_type = select_randomly_with_probability()
-    select_item = RewardType.NOTHING
+    select_item = 0
 
     if select_item_type == RewardType.ITEM:
         item = get_random_item(db)
@@ -98,19 +95,19 @@ def create_diary(_create_diary: CreateDiary, db: Session = Depends(get_db),
         if not item_user:
             raise HTTPException(status_code=404, detail="사용자 아이템 정보가 없습니다.")
         item_user.COUNT += 1
-        select_item = item.ITEM_NM
+        select_item = item.ITEM_NO
 
     if select_item_type == RewardType.AVATAR:
         avatar = get_random_avatar_not_owned_by_user(db, current_user.USER_NO)
         if not avatar:
-            select_item = RewardType.NOTHING
+            select_item_type = RewardType.NOTHING
             db.commit()
-            return {"message": "일기 생성 완료", "item": select_item}
+            return {"message": "일기 생성 완료", "item_type": select_item_type, "item_no": select_item}
 
-        select_item = avatar.AVATAR_NM
+        select_item = avatar.AVATAR_NO
         db_avatar_user = AvatarUser(AVATAR_NO=avatar.AVATAR_NO, USER_NO=current_user.USER_NO, IS_EQUIP=False)
         db.add(db_avatar_user)
 
     db.commit()
 
-    return {"message": "일기 생성 완료", "item": select_item}
+    return {"message": "일기 생성 완료", "item_type": select_item_type, "item_no": select_item}

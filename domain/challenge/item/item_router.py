@@ -32,7 +32,7 @@ def use_item(item_no: int, recipient_no: int, db: Session = Depends(get_db),
 
     # 남은 시간이 24시간 미만인 경우 오류 처리
     if time_remaining < 86400:
-        raise ValueError("남은 시간이 24시간 미만입니다.")
+        raise HTTPException(status_code=402, detail="남은 시간이 24시간 미만입니다.")
 
     used_user = get_challenge_user_by_user_no(db, target_user.CHALLENGE_MST_NO, current_user.USER_NO)
 
