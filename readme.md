@@ -8,4 +8,4 @@ alembic revision --autogenerate
 alembic upgrade head
 
 ## 서버 재설정
-sudo systemctl start myapi.service
+sudo systemctl restart myapi.service

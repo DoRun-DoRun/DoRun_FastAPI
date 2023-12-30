@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 
 from fastapi import APIRouter, HTTPException
 from fastapi import Depends
@@ -134,27 +135,29 @@ def get_avatars(db: Session = Depends(get_db), current_user: User = Depends(get_
 
 
 @router.put("/avatar")
-def set_equipped_avatar(avatar_no: int, db: Session = Depends(get_db),
-                        current_user: User = Depends(get_current_user)):
-    # 선택한 아바타 조회
-    avatar_user = db.query(AvatarUser).filter(
-        AvatarUser.USER_NO == current_user.USER_NO,
-        AvatarUser.AVATAR_NO == avatar_no
-    ).first()
+def set_equipped_avatars(avatar_nos: List[int], db: Session = Depends(get_db),
+                         current_user: User = Depends(get_current_user)):
+    # 여러 아바타에 대한 처리
+    for avatar_no in avatar_nos:
+        # 선택한 아바타 조회
+        avatar_user = db.query(AvatarUser).filter(
+            AvatarUser.USER_NO == current_user.USER_NO,
+            AvatarUser.AVATAR_NO == avatar_no
+        ).first()
 
-    if not avatar_user:
-        raise HTTPException(status_code=404, detail="아바타를 찾을 수 없습니다.")
+        if not avatar_user:
+            continue  # 아바타를 찾을 수 없는 경우, 다음 아바타로 넘어감
 
-    # 선택한 아바타의 타입 조회
-    avatar = db.query(Avatar).filter(Avatar.AVATAR_NO == avatar_user.AVATAR_NO).first()
+        # 선택한 아바타의 타입 조회
+        avatar = db.query(Avatar).filter(Avatar.AVATAR_NO == avatar_user.AVATAR_NO).first()
 
-    # 현재 착용 중인 동일 타입의 아바타 조회
-    equipped_avatar = get_equipped_avatar(db, current_user.USER_NO, avatar.AVATAR_TYPE)
+        # 현재 착용 중인 동일 타입의 아바타 조회
+        equipped_avatar = get_equipped_avatar(db, current_user.USER_NO, avatar.AVATAR_TYPE)
 
-    # 아바타 상태 변경
-    if equipped_avatar:
-        equipped_avatar.IS_EQUIP = False
-    avatar_user.IS_EQUIP = True
+        # 아바타 상태 변경
+        if equipped_avatar:
+            equipped_avatar.IS_EQUIP = False
+        avatar_user.IS_EQUIP = True
 
     db.commit()
 

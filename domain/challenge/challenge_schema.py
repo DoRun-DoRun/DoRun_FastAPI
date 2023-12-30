@@ -108,6 +108,7 @@ class AdditionalGoalPydantic(BaseModel):
 class ChallengeDetail(BaseModel):
     CHALLENGE_USER_NO: int
     CHALLENGE_STATUS: ChallengeStatusType
+    IS_DONE_TODAY: bool
     # teamGoal: List[TeamWeeklyGoalPydantic]
     additionalGoal: List[AdditionalGoalPydantic]
 

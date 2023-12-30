@@ -43,7 +43,7 @@ def challenge_create(_challenge_create: challenge_schema.ChallengeCreate,
 
     _challenge_list = get_challenge_list(db, _current_user)
 
-    if len(_challenge_list["progress_challenges"])>= 3:
+    if len(_challenge_list["progress_challenges"]) >= 3:
         raise HTTPException(status_code=404, detail="참가 가능한 챌린지는 3개입니다.")
 
     challenge = challenge_crud.post_create_challenge(db, challenge_create=_challenge_create,
@@ -53,8 +53,9 @@ def challenge_create(_challenge_create: challenge_schema.ChallengeCreate,
 
 
 @router.post("/start")
-def challenge_start(challenge_mst_no: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    message = start_challenge(db, challenge_mst_no, current_user)
+def challenge_start(challenge_mst_no: int, start_dt: datetime, db: Session = Depends(get_db),
+                    current_user=Depends(get_current_user)):
+    message = start_challenge(db, challenge_mst_no, current_user, start_dt)
     return message
 
 

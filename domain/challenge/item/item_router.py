@@ -8,7 +8,7 @@ from database import get_db
 from domain.challenge import challenge_crud
 from domain.challenge.challenge_crud import get_challenge_user_by_user_no
 from domain.user.user_crud import get_current_user
-from models import User, ItemUser, ItemLog, AdditionalGoal, PersonDailyGoal
+from models import User, ItemUser, ItemLog, AdditionalGoal, PersonDailyGoal, AvatarType
 
 router = APIRouter(
     prefix="/item",
@@ -62,4 +62,6 @@ def use_item(item_no: int, recipient_no: int, db: Session = Depends(get_db),
 
     db.commit()
 
-    return {"message": "아이템 사용 성공", "item_no": item_no}
+    my_avatar = challenge_crud.get_equipped_avatar(db, current_user.USER_NO, AvatarType.CHARACTER).AVATAR_NO
+
+    return {"message": "아이템 사용 성공", "item_no": item_no, "character_no": my_avatar}

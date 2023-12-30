@@ -3,7 +3,7 @@ import random
 from math import ceil
 
 from fastapi import HTTPException
-from sqlalchemy import func, Integer
+from sqlalchemy import func, Integer, and_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
@@ -267,6 +267,14 @@ def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int):
     # TeamWeeklyGoal 목록 검색 및 필터링
     # team_goals = get_team_weekly_goal_by_user(db, challenge_mst_no, current_day)
 
+    today = datetime.utcnow().date()
+    existing_diary = db.query(PersonDailyGoalComplete).filter(
+        and_(
+            PersonDailyGoalComplete.CHALLENGE_USER == challenge_user,
+            func.date(PersonDailyGoalComplete.INSERT_DT) == today
+        )
+    ).first()
+
     additional_goals = db.query(AdditionalGoal).join(
         ChallengeUser,
         ChallengeUser.CHALLENGE_USER_NO == AdditionalGoal.CHALLENGE_USER_NO
@@ -308,6 +316,7 @@ def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int):
     return {
         "CHALLENGE_USER_NO": challenge_user.CHALLENGE_USER_NO,
         "CHALLENGE_STATUS": challenge.CHALLENGE_STATUS,
+        "IS_DONE_TODAY": existing_diary is not None,
         # "personGoal": [PersonDailyGoalPydantic.model_validate(goal) for goal in person_goals],
         # "teamGoal": [TeamWeeklyGoalPydantic.model_validate(goal) for goal in team_goals],
         "additionalGoal": additional_goals_data
@@ -380,14 +389,14 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
     return db_challenge
 
 
-def start_challenge(db: Session, challenge_mst_no: int, current_user: User):
+def start_challenge(db: Session, challenge_mst_no: int, current_user: User, start_dt: datetime):
     challenge = get_challenge_master_by_id(db, challenge_mst_no)
     owner = get_challenge_user_by_user_no(db, challenge_mst_no, user_no=current_user.USER_NO)
 
     if not owner.IS_OWNER:
         raise HTTPException(status_code=401, detail="시작 권한이 없습니다")
 
-    challenge.START_DT = datetime.utcnow()
+    challenge.START_DT = start_dt
     challenge.CHALLENGE_STATUS = ChallengeStatusType.PROGRESS
 
     # ACCEPTED 상태가 아닌 ChallengeUser 삭제
@@ -435,7 +444,8 @@ def start_challenge_server(db: Session, challenge: ChallengeMaster):
     ).delete(synchronize_session=False)
 
     challenge_users = db.query(ChallengeUser).filter(
-        ChallengeUser.CHALLENGE_MST_NO == challenge.CHALLENGE_MST_NO, ChallengeUser.ACCEPT_STATUS == InviteAcceptType.ACCEPTED
+        ChallengeUser.CHALLENGE_MST_NO == challenge.CHALLENGE_MST_NO,
+        ChallengeUser.ACCEPT_STATUS == InviteAcceptType.ACCEPTED
     ).all()
 
     items = db.query(Item).all()
