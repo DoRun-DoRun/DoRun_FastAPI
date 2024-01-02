@@ -1,14 +1,13 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database import get_db
 from domain.challenge import challenge_crud
-from domain.challenge.challenge_crud import get_challenge_user_by_user_no
-from domain.user.user_crud import get_current_user
-from models import User, ItemUser, ItemLog, AdditionalGoal, PersonDailyGoal, AvatarType
+from domain.challenge.item.item_crud import used_item
+from domain.user.user_crud import get_current_user, get_equipped_avatar
+from models import User, ChallengeMaster, ChallengeStatusType, ChallengeUser, ItemUser, ItemLog, AvatarType
 
 router = APIRouter(
     prefix="/item",
@@ -19,49 +18,43 @@ router = APIRouter(
 @router.post("/{recipient_no}")
 def use_item(item_no: int, recipient_no: int, db: Session = Depends(get_db),
              current_user: User = Depends(get_current_user)):
-    target_user = challenge_crud.get_challenge_user_by_challenge_user_no(db, recipient_no)
+    message = used_item(db, item_no, recipient_no, current_user)
 
-    # 현재 UTC 시간
-    current_utc_time = datetime.utcnow()
+    return message
 
-    # ChallengeMaster의 종료 시간
-    end_time = target_user.CHALLENGE_MST.END_DT
 
-    # 남은 시간 계산 (초 단위)
-    time_remaining = (end_time - current_utc_time).total_seconds()
+@router.get("/log/{challenge_mst_no}")
+def get_item_log(challenge_mst_no: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    challenge_user = challenge_crud.get_challenge_user_by_user_no(db, challenge_mst_no, current_user.USER_NO)
 
-    # 남은 시간이 24시간 미만인 경우 오류 처리
-    if time_remaining < 86400:
-        raise HTTPException(status_code=402, detail="남은 시간이 24시간 미만입니다.")
+    twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
 
-    used_user = get_challenge_user_by_user_no(db, target_user.CHALLENGE_MST_NO, current_user.USER_NO)
+    item_logs = db.query(ItemLog).filter(
+        ItemLog.RECIPIENT_NO == challenge_user.CHALLENGE_USER_NO,
+        ItemLog.IS_VIEW == False,
+        ItemLog.INSERT_DT >= twenty_four_hours_ago,  # INSERT_DT가 최근 24시간 이내
+    ).all()
 
-    if target_user == used_user:
-        raise HTTPException(status_code=404, detail="본인에게는 사용할 수 없습니다.")
+    item_log_data = []
 
-    item_user = db.query(ItemUser).filter(used_user.CHALLENGE_USER_NO == ItemUser.CHALLENGE_USER_NO,
-                                          item_no == ItemUser.ITEM_NO).first()
+    for item_log in item_logs:
+        send_user = item_log.sender.USER
+        character = get_equipped_avatar(db, send_user.USER_NO, AvatarType.CHARACTER)
+        item_log_data.append(
+            {"ITEM_NO": item_log.ITEM_NO, "ITEM_LOG_NO": item_log.ITEM_LOG_NO, "INSERT_DT": item_log.INSERT_DT,
+             "send_USER_NM": send_user.USER_NM, "send_CHARACTER_NO": character.AVATAR_NO})
 
-    if not item_user:
-        raise HTTPException(status_code=404, detail="Item_User가 존재하지 않습니다")
+    return item_log_data
 
-    if item_user.COUNT == 0:
-        raise HTTPException(status_code=404, detail="사용할 아이템이 존재하지 않습니다")
 
-    item_user.COUNT -= 1
-    db_item_log = ItemLog(SENDER_NO=used_user.CHALLENGE_USER_NO, RECIPIENT_NO=recipient_no, ITEM_NO=item_no)
-    db.add(db_item_log)
+@router.put("/log/{item_log_no}")
+def update_item_log(item_log_no: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    item_log = db.query(ItemLog).filter(ItemLog.ITEM_LOG_NO == item_log_no).first()
 
-    if item_no == 1:
-        person_goal = db.query(PersonDailyGoal).filter(
-            PersonDailyGoal.CHALLENGE_USER_NO == used_user.CHALLENGE_USER_NO,
-        ).order_by(func.random()).first()
+    if item_log.recipient.USER_NO != current_user.USER_NO:
+        raise HTTPException(status_code=401, detail="업데이트 권한이 없습니다.")
 
-        db_additional_goal = AdditionalGoal(ADDITIONAL_NM=person_goal.PERSON_NM, CHALLENGE_USER_NO=recipient_no)
-        db.add(db_additional_goal)
-
+    item_log.IS_VIEW = True
     db.commit()
 
-    my_avatar = challenge_crud.get_equipped_avatar(db, current_user.USER_NO, AvatarType.CHARACTER).AVATAR_NO
-
-    return {"message": "아이템 사용 성공", "item_no": item_no, "character_no": my_avatar}
+    return {"message": "update 성공"}

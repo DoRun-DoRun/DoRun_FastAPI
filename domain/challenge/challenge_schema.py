@@ -145,6 +145,7 @@ class UserStatus(Enum):
 
 class GetChallengeUserDetail(BaseModel):
     CHALLENGE_USER_NO: int
+    END_DT: datetime
     USER_NM: str
     CHARACTER_NO: int
     # PROGRESS: float

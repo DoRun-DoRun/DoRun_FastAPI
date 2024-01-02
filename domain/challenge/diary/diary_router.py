@@ -83,8 +83,8 @@ def create_diary(_create_diary: CreateDiary, db: Session = Depends(get_db),
         )
         db.add(db_person_goal)
 
-    # 아바타 5%, 아이템 45%, 꽝 50%
-    select_item_type = select_randomly_with_probability()
+    # 아이템 50%, 꽝 50%
+    select_item_type = select_randomly_with_probability(0, 70, 30)
     select_item = 0
 
     if select_item_type == RewardType.ITEM:

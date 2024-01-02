@@ -34,15 +34,6 @@ class UpdateUser(BaseModel):
     USER_EMAIL: Optional[EmailStr] = None
     ID_TOKEN: Optional[str] = None
 
-
-class UpdateUserResponse(BaseModel):
-    UID: int
-    USER_NM: str
-    SIGN_TYPE: SignType
-    USER_EMAIL: EmailStr
-    ID_TOKEN: str
-
-
 class GetUser(BaseModel):
     USER_NM: str
     USER_CHARACTER_NO: int

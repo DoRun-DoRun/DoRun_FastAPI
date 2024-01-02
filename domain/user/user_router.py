@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from domain.user import user_crud, user_schema
 from domain.user.user_crud import encode_token, get_current_user, refresh_token, get_equipped_avatar
-from domain.user.user_schema import CreateUser, UpdateUser, GetUser, UpdateUserResponse, GetUserSetting, \
+from domain.user.user_schema import CreateUser, UpdateUser, GetUser, GetUserSetting, \
     UpdateUserSetting
 from models import User, AvatarUser, Avatar, UserSetting, SignType
 
@@ -69,18 +69,12 @@ def login_for_access_token(access_token=Depends(refresh_token)):
 #     return {"access_token": token}
 
 
-@router.put("", response_model=UpdateUserResponse)
+@router.put("")
 def update_user(user: UpdateUser, db: Session = Depends(get_db),
                 current_user: User = Depends(get_current_user)):
-    user_crud.update_user(user, db, current_user)
+    message = user_crud.update_user(user, db, current_user)
 
-    return UpdateUserResponse(
-        UID=current_user.UID,
-        USER_NM=current_user.USER_NM,
-        SIGN_TYPE=current_user.SIGN_TYPE,
-        USER_EMAIL=current_user.USER_EMAIL,
-        ID_TOKEN=current_user.ID_TOKEN
-    )
+    return message
 
 
 @router.delete("")
@@ -126,10 +120,10 @@ def get_avatars(db: Session = Depends(get_db), current_user: User = Depends(get_
             "AVATAR_NO": avatar.AVATAR_NO,
             "AVATAR_NM": avatar.AVATAR_NM,
             "AVATAR_TYPE": avatar.AVATAR_TYPE,
-            "IS_OWNED": avatar_user is not None  # 사용자가 보유하고 있으면 True
+            "IS_OWNED": avatar_user is not None
         })
     return {
-        "USER_NM": "노련한 서리태",  # 이 부분은 현재 사용자의 이름을 추가하는 예시입니다.
+        "USER_NM": current_user.USER_NM,
         "avatars": avatars
     }
 

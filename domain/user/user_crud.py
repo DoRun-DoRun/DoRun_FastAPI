@@ -38,11 +38,23 @@ def check_user_email_id_token_duplicate(db: Session, user_email: str, id_token: 
         query_conditions.append(User.USER_NO != current_user_id)
 
     existing_user = db.query(User).filter(or_(*query_conditions)).first()
+
     if existing_user:
         if user_email and existing_user.USER_EMAIL == user_email:
             raise HTTPException(status_code=400, detail="입력된 USER_EMAIL가 이미 존재합니다.")
         if id_token and existing_user.ID_TOKEN == id_token:
             raise HTTPException(status_code=400, detail="입력된 ID_TOKEN가 이미 존재합니다.")
+
+
+def check_duplicate_user_nm(db: Session, user_nm: str, current_user_id: int = None):
+    query_conditions = [User.USER_NM == user_nm]
+
+    if current_user_id:
+        query_conditions.append(User.USER_NO != current_user_id)
+
+    existing_user = db.query(User).filter(*query_conditions).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="해당 닉네임은 이미 사용 중입니다.")
 
 
 # UID를 통해서 유저 반환
@@ -131,7 +143,10 @@ def create_user(user: CreateUser, db: Session):
 
 
 def update_user(user: UpdateUser, db: Session, current_user: User):
-    check_user_email_id_token_duplicate(db, user.USER_EMAIL, user.ID_TOKEN, current_user.USER_NO)
+    check_duplicate_user_nm(db, user.USER_NM)
+
+    if user.USER_EMAIL is not None and user.ID_TOKEN is not None:
+        check_user_email_id_token_duplicate(db, user.USER_EMAIL, user.ID_TOKEN, current_user.USER_NO)
 
     if user.USER_NM is not None:
         current_user.USER_NM = user.USER_NM
@@ -143,6 +158,8 @@ def update_user(user: UpdateUser, db: Session, current_user: User):
         current_user.ID_TOKEN = user.ID_TOKEN
 
     db.commit()
+
+    return {"message": "업데이트 성공"}
 
 
 def get_user(db: Session, current_user: User):

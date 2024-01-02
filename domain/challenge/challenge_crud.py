@@ -5,7 +5,7 @@ from math import ceil
 from fastapi import HTTPException
 from sqlalchemy import func, Integer, and_
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, aliased
 
 from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticipant, \
     PersonDailyGoalPydantic, \
@@ -214,6 +214,8 @@ def get_active_challenges_for_user(db: Session, user_no: int, specified_date: da
 
 # 라우터 함수
 def get_challenge_list(db: Session, current_user: User):
+    challenge_user_alias = aliased(ChallengeUser)
+
     challenges = db.query(
         ChallengeMaster.CHALLENGE_MST_NO,
         ChallengeMaster.CHALLENGE_MST_NM,
@@ -221,33 +223,41 @@ def get_challenge_list(db: Session, current_user: User):
         ChallengeMaster.END_DT,
         ChallengeMaster.HEADER_EMOJI,
         ChallengeMaster.CHALLENGE_STATUS,
-        ChallengeUser.ACCEPT_STATUS
-    ).join(ChallengeUser, ChallengeUser.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO) \
-        .filter(
-        ChallengeUser.USER_NO == current_user.USER_NO,
+        challenge_user_alias.ACCEPT_STATUS
+    ).join(
+        challenge_user_alias,
+        challenge_user_alias.CHALLENGE_MST_NO == ChallengeMaster.CHALLENGE_MST_NO
+    ).filter(
+        challenge_user_alias.USER_NO == current_user.USER_NO,
         ChallengeMaster.CHALLENGE_STATUS != ChallengeStatusType.COMPLETE,
         ChallengeMaster.DELETE_YN == False
     ).all()
 
-    invited_challenges = []
-    progress_challenges = []
-
-    # 챌린지 분류 로직
-    for challenge in challenges:
-        challenge_info = {
-            "CHALLENGE_MST_NO": challenge[0],
-            "CHALLENGE_MST_NM": challenge[1],
-            "START_DT": challenge[2],
-            "END_DT": challenge[3],
-            "HEADER_EMOJI": challenge[4],
-            "CHALLENGE_STATUS": challenge[5],
-            "PROGRESS": calculate_challenge_progress(challenge[2], challenge[3])  # 프로그레스 계산 함수
+    invited_challenges = [
+        {
+            "CHALLENGE_MST_NO": challenge.CHALLENGE_MST_NO,
+            "CHALLENGE_MST_NM": challenge.CHALLENGE_MST_NM,
+            "START_DT": challenge.START_DT,
+            "END_DT": challenge.END_DT,
+            "HEADER_EMOJI": challenge.HEADER_EMOJI,
+            "CHALLENGE_STATUS": challenge.CHALLENGE_STATUS,
+            "PROGRESS": calculate_challenge_progress(challenge.START_DT, challenge.END_DT)
         }
+        for challenge in challenges if challenge.ACCEPT_STATUS == InviteAcceptType.PENDING
+    ]
 
-        if challenge[6] == InviteAcceptType.PENDING:
-            invited_challenges.append(challenge_info)
-        elif challenge[6] == InviteAcceptType.ACCEPTED:
-            progress_challenges.append(challenge_info)
+    progress_challenges = [
+        {
+            "CHALLENGE_MST_NO": challenge.CHALLENGE_MST_NO,
+            "CHALLENGE_MST_NM": challenge.CHALLENGE_MST_NM,
+            "START_DT": challenge.START_DT,
+            "END_DT": challenge.END_DT,
+            "HEADER_EMOJI": challenge.HEADER_EMOJI,
+            "CHALLENGE_STATUS": challenge.CHALLENGE_STATUS,
+            "PROGRESS": calculate_challenge_progress(challenge.START_DT, challenge.END_DT)
+        }
+        for challenge in challenges if challenge.ACCEPT_STATUS == InviteAcceptType.ACCEPTED
+    ]
 
     return {
         "invited_challenges": invited_challenges,
@@ -434,7 +444,6 @@ def start_challenge(db: Session, challenge_mst_no: int, current_user: User, star
 
 
 def start_challenge_server(db: Session, challenge: ChallengeMaster):
-    challenge.START_DT = datetime.utcnow()
     challenge.CHALLENGE_STATUS = ChallengeStatusType.PROGRESS
 
     # ACCEPTED 상태가 아닌 ChallengeUser 삭제
@@ -460,6 +469,15 @@ def start_challenge_server(db: Session, challenge: ChallengeMaster):
 
     db.commit()
     return {"message": "챌린지가 시작되었습니다"}
+
+
+def end_challenge_server(db: Session, challenge: ChallengeMaster):
+    challenge.CHALLENGE_STATUS = ChallengeStatusType.COMPLETE
+
+    challenge_users = db.query(ChallengeUser).filter(
+        ChallengeUser.CHALLENGE_MST_NO == challenge.CHALLENGE_MST_NO,
+        ChallengeUser.ACCEPT_STATUS == InviteAcceptType.ACCEPTED
+    ).all()
 
 
 def get_challenge_user_list(db: Session, current_user: User, page: int):
@@ -569,6 +587,7 @@ def get_challenge_user_detail(db: Session, challenge_user_no: int, current_user:
 
     return GetChallengeUserDetail(
         CHALLENGE_USER_NO=target_user.CHALLENGE_USER_NO,
+        END_DT=target_user.CHALLENGE_MST.END_DT,
         USER_NM=target_user.USER.USER_NM,
         CHARACTER_NO=character.AVATAR_NO,
         # PROGRESS=calculate_user_progress(db, challenge_user_no),
@@ -617,7 +636,6 @@ def get_challenge_history_list(db: Session, current_day: datetime, _current_user
     person_goal = []
 
     if daily_complete:
-        print(daily_complete.IMAGE_FILE_NM)
         image_file = daily_complete.IMAGE_FILE_NM
         comment = daily_complete.COMMENT
         daily_complete_users = db.query(DailyCompleteUser).filter(
