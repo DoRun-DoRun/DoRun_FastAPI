@@ -46,7 +46,6 @@ def check_and_start_challenges():
     db = SessionLocal()  # 직접 세션 생성
     try:
         current_date = datetime.utcnow()
-        print("현재 날짜:", current_date)
         challenges_to_start = db.query(ChallengeMaster).filter(
             ChallengeMaster.START_DT <= current_date,
             ChallengeMaster.CHALLENGE_STATUS == ChallengeStatusType.PENDING,
@@ -71,7 +70,7 @@ def check_and_start_challenges():
 
 
 # 스케줄러에 작업 추가
-scheduler.add_job(check_and_start_challenges, 'cron', hour=3, minute=23)
+scheduler.add_job(check_and_start_challenges, 'cron', hour=4, minute=00)
 
 # 스케줄러 시작
 scheduler.start()

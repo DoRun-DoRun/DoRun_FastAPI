@@ -175,14 +175,18 @@ class PersonDailyGoal(Base):
 #     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
 
 
+def get_end_dt():
+    return datetime.utcnow() + timedelta(hours=24)
+
+
 class AdditionalGoal(Base):
     __tablename__ = 'additional_goal'
 
     ADDITIONAL_NO = Column(Integer, primary_key=True)
     ADDITIONAL_NM = Column(String)
     IS_DONE = Column(Boolean, default=False)
-    START_DT = Column(DateTime, default=datetime.utcnow())
-    END_DT = Column(DateTime, default=datetime.utcnow() + timedelta(hours=24))
+    START_DT = Column(DateTime, default=datetime.utcnow)
+    END_DT = Column(DateTime, default=get_end_dt())
     IMAGE_FILE_NM = Column(String)
 
     CHALLENGE_USER = relationship('ChallengeUser', backref="additional_goal")
@@ -194,7 +198,7 @@ class PersonDailyGoalComplete(Base):
 
     DAILY_COMPLETE_NO = Column(Integer, primary_key=True)
     IMAGE_FILE_NM = Column(String)
-    INSERT_DT = Column(DateTime, default=datetime.utcnow())
+    INSERT_DT = Column(DateTime, default=datetime.utcnow)
     COMMENT = Column(String)
 
     CHALLENGE_USER = relationship('ChallengeUser', backref="person_daily_goal_complete")
