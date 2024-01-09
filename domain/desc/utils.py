@@ -46,9 +46,12 @@ class RewardType(enum.Enum):
     NOTHING = "Nothing"
 
 
-def select_randomly_with_probability(avatar, item, nothing):
+def select_randomly_with_probability(avatar, item, nothing, duration):
     choices = list(RewardType)
-    selected = random.choices(choices, weights=[avatar, item, nothing], k=1)[0]
+    total_prob = avatar + duration + item + nothing
+    selected = \
+        random.choices(choices, weights=[(avatar + duration) / total_prob, item / total_prob, nothing / total_prob],
+                       k=1)[0]
 
     return selected
 

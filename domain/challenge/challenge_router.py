@@ -185,10 +185,13 @@ def update_challenge_log(challenge_user_no: int, db: Session = Depends(get_db),
 
     challenge_user.IS_VIEW = True
 
+    duration = (challenge_user.CHALLENGE_MST.END_DT - challenge_user.CHALLENGE_MST.START_DT).days
+
     challenge_user_count = db.query(ChallengeUser).filter(
         ChallengeUser.CHALLENGE_MST_NO == challenge_user.CHALLENGE_MST_NO).count()
 
-    avatar_type = select_randomly_with_probability(50 + challenge_user_count * 5, 0, 50 - challenge_user_count * 5)
+    avatar_type = select_randomly_with_probability(50 + challenge_user_count * 5, 0, 50 - challenge_user_count * 5,
+                                                   duration)
 
     avatar = None
 
@@ -198,6 +201,8 @@ def update_challenge_log(challenge_user_no: int, db: Session = Depends(get_db),
         if avatar:
             db_avatar_user = AvatarUser(AVATAR_NO=avatar.AVATAR_NO, USER_NO=current_user.USER_NO, IS_EQUIP=False)
             db.add(db_avatar_user)
+        else:
+            avatar_type = RewardType.NOTHING
 
     db.commit()
 

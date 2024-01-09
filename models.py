@@ -158,6 +158,9 @@ class PersonDailyGoal(Base):
     CHALLENGE_USER = relationship('ChallengeUser', backref="person_daily_goal")
     CHALLENGE_USER_NO = Column(Integer, ForeignKey('challenge_users.CHALLENGE_USER_NO'))
 
+    DAILY_COMPLETE = relationship('PersonDailyGoalComplete')
+    DAILY_COMPLETE_NO = Column(Integer, ForeignKey('person_daily_goal_complete.DAILY_COMPLETE_NO'))
+
 
 # class TeamWeeklyGoal(Base):
 #     __tablename__ = 'team_weekly_goal'

@@ -278,10 +278,14 @@ def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int):
     # team_goals = get_team_weekly_goal_by_user(db, challenge_mst_no, current_day)
 
     today = datetime.utcnow().date()
+    day_start = datetime(today.year, today.month, today.day - 1, 19, 0, 0)
+    day_end = day_start + timedelta(days=1) - timedelta(minutes=1)
+
     existing_diary = db.query(PersonDailyGoalComplete).filter(
         and_(
             PersonDailyGoalComplete.CHALLENGE_USER == challenge_user,
-            func.date(PersonDailyGoalComplete.INSERT_DT) == today
+            PersonDailyGoalComplete.INSERT_DT >= day_start,
+            PersonDailyGoalComplete.INSERT_DT <= day_end
         )
     ).first()
 
@@ -526,8 +530,8 @@ def get_challenge_user_list(db: Session, current_user: User, page: int):
         if challenge_user.USER_NO != current_user.USER_NO:
             diaries = db.query(PersonDailyGoalComplete).filter(
                 PersonDailyGoalComplete.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
-                PersonDailyGoalComplete.INSERT_DT >= twenty_four_hours_ago,
-                PersonDailyGoalComplete.COMMENT != '' or PersonDailyGoalComplete.IMAGE_FILE_NM != '',
+                PersonDailyGoalComplete.INSERT_DT >= twenty_four_hours_ago
+                # PersonDailyGoalComplete.COMMENT != '' or PersonDailyGoalComplete.IMAGE_FILE_NM != '',
             ).all()
         else:
             diaries = []
