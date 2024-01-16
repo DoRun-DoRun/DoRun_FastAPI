@@ -46,7 +46,6 @@ class User(Base):
     USER_NM = Column(String)
     UID = Column(Integer, Sequence('user_uid_seq', start=1000000), unique=True, index=True)
     USER_EMAIL = Column(String)
-    ID_TOKEN = Column(String)
 
     INSERT_DT = Column(DateTime, default=datetime.utcnow)
     MODIFY_DT = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

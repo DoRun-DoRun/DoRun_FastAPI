@@ -11,21 +11,21 @@ class PostCreateUser(BaseModel):
     refresh_token: str
     UID: int
     USER_NM: str
+    SIGN_TYPE: SignType
 
 
 class CreateUser(BaseModel):
-    ID_TOKEN: Optional[str] = None
     USER_EMAIL: Optional[EmailStr] = None
     SIGN_TYPE: SignType
 
-    @property
-    def is_valid(self):
-        if self.SIGN_TYPE != SignType.GUEST:
-            if not self.ID_TOKEN:
-                return False, "ID_TOKEN을 입력해주세요."
-            if not self.USER_EMAIL:
-                return False, "USER_EMAIL 입력해주세요."
-        return True, ""
+    # @property
+    # def is_valid(self):
+    #     if self.SIGN_TYPE != SignType.GUEST:
+    #         if not self.ID_TOKEN:
+    #             return False, "ID_TOKEN을 입력해주세요."
+    #         if not self.USER_EMAIL:
+    #             return False, "USER_EMAIL 입력해주세요."
+    #     return True, ""
 
 
 class UpdateUser(BaseModel):

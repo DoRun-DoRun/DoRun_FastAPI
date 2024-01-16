@@ -31,13 +31,14 @@ def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Sessio
 
 
 @router.post("", response_model=user_schema.PostCreateUser)
-def create_user(user: CreateUser, db: Session = Depends(get_db)):
-    is_valid, message = user.is_valid
+def create_user(user_data: CreateUser, db: Session = Depends(get_db)):
+    print(user_data)
+    user = None
+    if user_data.SIGN_TYPE != SignType.GUEST:
+        user = db.query(User).filter(User.USER_EMAIL == user_data.USER_EMAIL).first()
 
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=message)
-
-    user = user_crud.create_user(user, db)
+    if not user:
+        user = user_crud.create_user(user_data, db)
 
     access_token = encode_token(str(user.UID), is_exp=True)
     _refresh_token = encode_token(str(user.UID), is_exp=False)
@@ -47,7 +48,8 @@ def create_user(user: CreateUser, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "refresh_token": _refresh_token,
         "UID": user.UID,
-        "USER_NM": user.USER_NM
+        "USER_NM": user.USER_NM,
+        "SIGN_TYPE": user_data.SIGN_TYPE
     }
 
 
@@ -57,10 +59,13 @@ def get_user(db: Session = Depends(get_db), current_user: User = Depends(get_cur
 
 
 @router.get("/login")
-def login_for_access_token(access_token=Depends(refresh_token)):
+def login_for_access_token(user=Depends(refresh_token)):
+    new_token = encode_token(sub=user.UID, is_exp=True)
+
     return {
-        "access_token": access_token,
+        "access_token": new_token,
         "token_type": "bearer",
+        "SIGN_TYPE": user.SIGN_TYPE
     }
 
 

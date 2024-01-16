@@ -106,24 +106,15 @@ def refresh_token(token: str = Depends(oauth2_scheme), db: Session = Depends(get
 
     user = get_user_by_uid(db, uid)
     user.RECENT_LOGIN_DT = datetime.utcnow()
-    db.add(user)
     db.commit()
 
-    # 새로운 토큰 생성
-    new_token = encode_token(sub=uid, is_exp=True)
-    return new_token
+    return user
 
 
 # 라우터 함수
 def create_user(user: CreateUser, db: Session):
-    if user.SIGN_TYPE != SignType.GUEST:
-        check_user_email_id_token_duplicate(db, user.USER_EMAIL, user.ID_TOKEN)
+    db_user = User(USER_NM=random_user(), SIGN_TYPE=user.SIGN_TYPE, USER_EMAIL=user.USER_EMAIL)
 
-    if user.SIGN_TYPE == SignType.GUEST:
-        db_user = User(USER_NM=random_user(), SIGN_TYPE=user.SIGN_TYPE)
-    else:
-        db_user = User(USER_NM=random_user(), SIGN_TYPE=user.SIGN_TYPE,
-                       USER_EMAIL=user.USER_EMAIL, ID_TOKEN=user.ID_TOKEN)
     db.add(db_user)
     db.commit()
 
@@ -140,6 +131,34 @@ def create_user(user: CreateUser, db: Session):
     db.commit()
 
     return db_user
+
+
+def social_login(user: CreateUser, db: Session):
+    existing_user = db.query(User).filter(User.USER_EMAIL == user.USER_EMAIL).first()
+
+    if not existing_user:
+        db_user = User(USER_NM=random_user(), SIGN_TYPE=user.SIGN_TYPE,
+                       USER_EMAIL=user.USER_EMAIL)
+
+        db.add(db_user)
+        db.commit()
+
+        db_user_setting = UserSetting(
+            USER_NO=db_user.USER_NO,
+        )
+        db.add(db_user_setting)
+
+        db_avatar_user = AvatarUser(
+            IS_EQUIP=True,
+            USER_NO=db_user.USER_NO,
+            AVATAR_NO=1,
+        )
+        db.add(db_avatar_user)
+
+        db.commit()
+
+        return db_user
+    return existing_user
 
 
 def update_user(user: UpdateUser, db: Session, current_user: User):
