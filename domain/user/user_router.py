@@ -45,7 +45,6 @@ def create_user(user_data: CreateUser, db: Session = Depends(get_db)):
 
     return {
         "access_token": access_token,
-        "token_type": "bearer",
         "refresh_token": _refresh_token,
         "UID": user.UID,
         "USER_NM": user.USER_NM,
@@ -60,11 +59,10 @@ def get_user(db: Session = Depends(get_db), current_user: User = Depends(get_cur
 
 @router.get("/login")
 def login_for_access_token(user=Depends(refresh_token)):
-    new_token = encode_token(sub=user.UID, is_exp=True)
-
+    access_token = encode_token(str(user.UID), is_exp=True)
+    print(access_token)
     return {
-        "access_token": new_token,
-        "token_type": "bearer",
+        "access_token": access_token,
         "SIGN_TYPE": user.SIGN_TYPE
     }
 

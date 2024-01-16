@@ -7,7 +7,6 @@ from models import SignType
 
 class PostCreateUser(BaseModel):
     access_token: str
-    token_type: str
     refresh_token: str
     UID: int
     USER_NM: str
