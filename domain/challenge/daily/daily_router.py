@@ -36,9 +36,7 @@ def update_person_goal(_update_todo: daily_schema.UpdatePersonGoal,
 
     if _current_user.USER_NO != _challenge_user.USER_NO:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="수정 권한이 없습니다.")
-
-    daily_crud.update_person_goal(db=db, db_person_goal=db_person_goal,
+                            detail="수정 권한이 없습니다.").update_person_goal(db=db, db_person_goal=db_person_goal,
                                   person_goal_update=_update_todo)
 
 

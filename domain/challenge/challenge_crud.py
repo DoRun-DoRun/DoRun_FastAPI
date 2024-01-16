@@ -518,6 +518,8 @@ def get_challenge_user_list(db: Session, current_user: User, page: int):
     challenge_users = get_challenge_users_by_mst_no(db, challenge.CHALLENGE_MST_NO)
 
     challenge_user_lists = []
+    one_week_ago = datetime.utcnow() - timedelta(days=7)
+
     for challenge_user in challenge_users:
         # 각 사용자별로 Character 및 Pet 정보 조회
         character = get_equipped_avatar(db, challenge_user.USER_NO, AvatarType.CHARACTER)
@@ -536,12 +538,25 @@ def get_challenge_user_list(db: Session, current_user: User, page: int):
         else:
             diaries = []
 
+        total_diaries = db.query(PersonDailyGoalComplete).filter(
+            PersonDailyGoalComplete.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
+            PersonDailyGoalComplete.INSERT_DT >= one_week_ago
+        ).all()
+
+        diaries_length = len(total_diaries)
+        user_status = UserStatus.SLEEPING
+        if 1 <= diaries_length < 3:
+            user_status = UserStatus.WALKING  # '걷고 있음'
+        elif diaries_length >= 3:
+            user_status = UserStatus.RUNNING  # '뛰고 있음'
+
         challenge_user_list = ChallengeUserList(
             CHALLENGE_USER_NO=challenge_user.CHALLENGE_USER_NO,
             PROGRESS=calculate_user_progress(db, challenge_user.CHALLENGE_USER_NO),
             CHARACTER_NO=character.AVATAR_NO,
             PET_NO=pet.AVATAR_NO if pet else None,
             DIARIES=[DiaryPydantic.model_validate(diary) for diary in diaries],
+            STATUS=user_status,
         )
         challenge_user_lists.append(challenge_user_list)
 

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from domain.challenge import challenge_crud
-from domain.challenge.item.item_crud import used_item
+from domain.challenge.item.item_crud import used_item, get_item
 from domain.user.user_crud import get_current_user, get_equipped_avatar
 from models import User, ChallengeMaster, ChallengeStatusType, ChallengeUser, ItemUser, ItemLog, AvatarType
 
@@ -13,6 +13,14 @@ router = APIRouter(
     prefix="/item",
     tags=["Item"]
 )
+
+
+@router.post("")
+def use_item(challenge_user: int, db: Session = Depends(get_db),
+             current_user: User = Depends(get_current_user)):
+    message = get_item(db, current_user, challenge_user)
+
+    return message
 
 
 @router.post("/{recipient_no}")

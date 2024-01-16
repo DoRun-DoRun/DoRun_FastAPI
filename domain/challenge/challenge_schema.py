@@ -7,6 +7,12 @@ from models import ChallengeStatusType, InviteAcceptType, ItemType
 from enum import Enum
 
 
+class UserStatus(Enum):
+    SLEEPING = "자는중"
+    WALKING = "걷는중"
+    RUNNING = "뛰는중"
+
+
 class ChallengeParticipant(BaseModel):
     UID: int
     USER_NM: str
@@ -33,6 +39,7 @@ class ChallengeUserList(BaseModel):
     CHARACTER_NO: int
     PET_NO: Optional[int]
     DIARIES: Optional[List[DiaryPydantic]]
+    STATUS: UserStatus
 
     class Config:
         from_attributes = True
@@ -135,12 +142,6 @@ class ChallengeCreate(BaseModel):
 class PutChallengeInvite(BaseModel):
     CHALLENGE_MST_NO: int
     ACCEPT_STATUS: InviteAcceptType
-
-
-class UserStatus(Enum):
-    SLEEPING = "자는중"
-    WALKING = "걷는중"
-    RUNNING = "뛰는중"
 
 
 class GetChallengeUserDetail(BaseModel):

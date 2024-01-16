@@ -5,7 +5,34 @@ from sqlalchemy.orm import Session
 
 from domain.challenge import challenge_crud
 from domain.challenge.challenge_crud import get_challenge_user_by_user_no
-from models import ItemUser, ItemLog, AdditionalGoal, PersonDailyGoal, AvatarType, User
+from domain.desc.utils import select_randomly_with_probability, RewardType, get_random_item, \
+    get_random_avatar_not_owned_by_user
+from models import ItemUser, ItemLog, AdditionalGoal, PersonDailyGoal, AvatarType, User, AvatarUser
+
+
+def get_item(db: Session, current_user: User, challenge_user):
+    select_item_type = select_randomly_with_probability(5, 95, 0, 0)
+
+    if select_item_type == RewardType.AVATAR:
+        avatar = get_random_avatar_not_owned_by_user(db, current_user.USER_NO)
+        if avatar:
+            select_item = avatar.AVATAR_NO
+            db_avatar_user = AvatarUser(AVATAR_NO=avatar.AVATAR_NO, USER_NO=current_user.USER_NO, IS_EQUIP=False)
+            db.add(db_avatar_user)
+            db.commit()
+            return {"message": "아이템 추가 완료", "item_type": select_item_type, "item_no": select_item}
+
+    item = get_random_item(db)
+    item_user = db.query(ItemUser).filter(
+        ItemUser.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
+        ItemUser.ITEM_NO == item.ITEM_NO).first()
+    if not item_user:
+        raise HTTPException(status_code=404, detail="사용자 아이템 정보가 없습니다.")
+    item_user.COUNT += 1
+    select_item = item.ITEM_NO
+    db.commit()
+
+    return {"message": "아이템 추가 완료", "item_type": select_item_type, "item_no": select_item}
 
 
 def used_item(db: Session, item_no: int, recipient_no: int, current_user: User):

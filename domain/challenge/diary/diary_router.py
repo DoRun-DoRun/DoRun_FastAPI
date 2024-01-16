@@ -112,16 +112,16 @@ def create_diary(_create_diary: CreateDiary, db: Session = Depends(get_db),
         item_user.COUNT += 1
         select_item = item.ITEM_NO
 
-    if select_item_type == RewardType.AVATAR:
-        avatar = get_random_avatar_not_owned_by_user(db, current_user.USER_NO)
-        if not avatar:
-            select_item_type = RewardType.NOTHING
-            db.commit()
-            return {"message": "일기 생성 완료", "item_type": select_item_type, "item_no": select_item}
-
-        select_item = avatar.AVATAR_NO
-        db_avatar_user = AvatarUser(AVATAR_NO=avatar.AVATAR_NO, USER_NO=current_user.USER_NO, IS_EQUIP=False)
-        db.add(db_avatar_user)
+    # if select_item_type == RewardType.AVATAR:
+    #     avatar = get_random_avatar_not_owned_by_user(db, current_user.USER_NO)
+    #     if not avatar:
+    #         select_item_type = RewardType.NOTHING
+    #         db.commit()
+    #         return {"message": "일기 생성 완료", "item_type": select_item_type, "item_no": select_item}
+    #
+    #     select_item = avatar.AVATAR_NO
+    #     db_avatar_user = AvatarUser(AVATAR_NO=avatar.AVATAR_NO, USER_NO=current_user.USER_NO, IS_EQUIP=False)
+    #     db.add(db_avatar_user)
 
     db.commit()
 
