@@ -32,7 +32,7 @@ def user_test_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Sessio
 
 @router.post("", response_model=user_schema.PostCreateUser)
 def create_user(user_data: CreateUser, db: Session = Depends(get_db)):
-    print(user_data)
+    # print(user_data)
     user = None
     if user_data.SIGN_TYPE != SignType.GUEST:
         user = db.query(User).filter(User.USER_EMAIL == user_data.USER_EMAIL).first()
@@ -63,6 +63,8 @@ def login_for_access_token(user=Depends(refresh_token)):
     print(access_token)
     return {
         "access_token": access_token,
+        "UID": user.UID,
+        "USER_NM": user.USER_NM,
         "SIGN_TYPE": user.SIGN_TYPE
     }
 
