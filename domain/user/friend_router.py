@@ -39,7 +39,7 @@ def invite_friend(uid: int, db: Session = Depends(get_db),
     db.add(db_friend)
     db.commit()
 
-    return {"message": "친구요청 성공!"}
+    return {"message": "친구요청 성공!", "FRIEND_NO": db_friend.FRIEND_NO}
 
 
 @router.get("/list", response_model=FriendListResponse)
