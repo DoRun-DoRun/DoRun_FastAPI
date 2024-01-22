@@ -9,11 +9,11 @@ from database import get_db
 from domain.challenge import challenge_schema, challenge_crud
 from domain.challenge.challenge_crud import get_challenge_list, get_challenge_detail, \
     get_challenge_invite, get_challenge_user_by_user_no, start_challenge, calculate_user_progress, \
-    get_challenge_participants
+    get_challenge_participants, get_challenge_master_by_id
 from domain.challenge.challenge_schema import ChallengeInvite, PutChallengeInvite
 from domain.desc.utils import get_random_avatar_not_owned_by_user, RewardType, select_randomly_with_probability
 from domain.user.user_crud import get_current_user
-from models import User, ChallengeUser, ChallengeMaster, ChallengeStatusType, AvatarUser
+from models import User, ChallengeUser, ChallengeMaster, ChallengeStatusType, AvatarUser, InviteAcceptType
 
 router = APIRouter(
     prefix="/challenge",
@@ -68,6 +68,32 @@ def challenge_update(challenge_mst_no: int, _challenge_update: challenge_schema.
                      current_user: User = Depends(get_current_user)):
     message = challenge_crud.challenge_update(db, challenge_mst_no, _challenge_update, current_user)
     return message
+
+
+@router.put("/link/{challenge_mst_no}")
+def challenge_update(challenge_mst_no: int,
+                     db: Session = Depends(get_db),
+                     current_user: User = Depends(get_current_user)):
+    challenge = get_challenge_master_by_id(db, challenge_mst_no)
+
+    if challenge.CHALLENGE_STATUS != ChallengeStatusType.PENDING:
+        return {"message": "참가할 수 없는 챌린지 입니다."}
+
+    existing_user_ids = {cu.USER.USER_NO for cu in challenge.USERS}
+
+    if current_user.USER_NO in existing_user_ids:
+        return {"message": "이미 존재하는 유저입니다."}
+    else:
+        db_challenge_user = ChallengeUser(
+            CHALLENGE_MST=challenge,
+            USER=current_user,
+            IS_OWNER=False,
+            ACCEPT_STATUS=InviteAcceptType.PENDING
+        )
+        db.add(db_challenge_user)
+        db.commit()
+
+        return {"message": "참가 성공"}
 
 
 @router.delete("/{challenge_mst_no}")
