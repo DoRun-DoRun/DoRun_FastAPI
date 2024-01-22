@@ -93,7 +93,17 @@ def challenge_update(challenge_mst_no: int,
         db.add(db_challenge_user)
         db.commit()
 
-        return {"message": "참가 성공"}
+        count = db.query(ChallengeMaster).join(
+            ChallengeUser,
+            ChallengeMaster.CHALLENGE_MST_NO == ChallengeUser.CHALLENGE_MST_NO
+        ).filter(
+            ChallengeUser.USER_NO == current_user.USER_NO,
+            ChallengeUser.ACCEPT_STATUS == InviteAcceptType.ACCEPTED,
+            ChallengeMaster.CHALLENGE_STATUS != ChallengeStatusType.COMPLETE,
+            ChallengeMaster.DELETE_YN == False
+        ).count()
+
+        return {"message": "참가 성공", "challenge": challenge_mst_no, "challenge_count": count}
 
 
 @router.delete("/{challenge_mst_no}")
@@ -147,12 +157,18 @@ def challenge_invite(challenge_mst_no: int, db: Session = Depends(get_db),
 @router.put("/invite/{challenge_mst_no}")
 def challenge_invite(put_challenge_invite: PutChallengeInvite, db: Session = Depends(get_db),
                      _current_user: User = Depends(get_current_user)):
+    challenge_user = get_challenge_user_by_user_no(db, put_challenge_invite.CHALLENGE_MST_NO, _current_user.USER_NO)
+
+    if put_challenge_invite.ACCEPT_STATUS == InviteAcceptType.DECLINED:
+        db.delete(challenge_user)
+        db.commit()
+        return {"message": "초대상태 수정완료", "challenge_user": None, "status": put_challenge_invite.ACCEPT_STATUS}
+
     _challenge_list = get_challenge_list(db, _current_user)
 
     if len(_challenge_list["progress_challenges"]) >= 3:
         raise HTTPException(status_code=404, detail="참가 가능한 챌린지는 3개입니다.")
 
-    challenge_user = get_challenge_user_by_user_no(db, put_challenge_invite.CHALLENGE_MST_NO, _current_user.USER_NO)
     challenge_user.ACCEPT_STATUS = put_challenge_invite.ACCEPT_STATUS
     db.commit()
 
@@ -191,12 +207,13 @@ def get_challenge_log(db: Session = Depends(get_db), current_user: User = Depend
                                          "progress": calculate_user_progress(db,
                                                                              completed_challenge_user.CHALLENGE_USER_NO)})
 
-        completed_challenges_data.append({"CHALLENGE_MST_NM": completed_challenge_user.CHALLENGE_MST.CHALLENGE_MST_NM,
-                                          "CHALLENGE_MST_NO": challenge.CHALLENGE_MST_NO,
-                                          "CHALLENGE_USER_NO": completed_challenge_user.CHALLENGE_USER_NO,
-                                          "START_DT": challenge.START_DT,
-                                          "END_DT": challenge.END_DT,
-                                          "participants": challenge_users_data})
+        completed_challenges_data.append(
+            {"CHALLENGE_MST_NM": completed_challenge_user.CHALLENGE_MST.CHALLENGE_MST_NM,
+             "CHALLENGE_MST_NO": challenge.CHALLENGE_MST_NO,
+             "CHALLENGE_USER_NO": completed_challenge_user.CHALLENGE_USER_NO,
+             "START_DT": challenge.START_DT,
+             "END_DT": challenge.END_DT,
+             "participants": challenge_users_data})
     db.commit()
     return completed_challenges_data
 
