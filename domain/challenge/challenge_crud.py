@@ -732,16 +732,17 @@ def challenge_delete(db: Session, challenge_mst_no: int, current_user: User):
     challenge = get_challenge_master_by_id(db, challenge_mst_no)
     challenge_user = get_challenge_user_by_user_no(db, challenge_mst_no, current_user.USER_NO)
 
-    # 챌린지 참여 인원 확인
-    if len(challenge.USERS) > 1:
-        # 참여 인원이 1명보다 많은 경우 challenge_user만 삭제
-        db.delete(challenge_user)
-        db.commit()
-        return {"message": "챌린지에서 성공적으로 탈퇴했습니다."}
-    else:
-        # 참여 인원이 1명인 경우 챌린지와 challenge_user 모두 삭제
+    if challenge_user.IS_OWNER:
         challenge.DELETE_YN = True
         challenge.DELETE_DT = datetime.utcnow()
-        db.delete(challenge_user)  # challenge_user 삭제
+        challenge_users = get_challenge_users_by_mst_no(db, challenge_mst_no)
+
+        for _challenge_user in challenge_users:
+            db.delete(_challenge_user)
+
         db.commit()
         return {"message": "챌린지가 성공적으로 삭제되었습니다."}
+
+    db.delete(challenge_user)
+    db.commit()
+    return {"message": "챌린지에서 성공적으로 탈퇴했습니다."}
