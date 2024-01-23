@@ -188,7 +188,7 @@ class AdditionalGoal(Base):
     ADDITIONAL_NM = Column(String)
     IS_DONE = Column(Boolean, default=False)
     START_DT = Column(DateTime, default=datetime.utcnow)
-    END_DT = Column(DateTime, default=get_end_dt())
+    END_DT = Column(DateTime, default=get_end_dt)
     IMAGE_FILE_NM = Column(String)
 
     CHALLENGE_USER = relationship('ChallengeUser', backref="additional_goal")
