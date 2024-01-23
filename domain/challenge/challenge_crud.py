@@ -378,21 +378,13 @@ def post_create_challenge(db: Session, challenge_create: ChallengeCreate, curren
     )
     db.add(db_challenge)
 
-    comments = [
-        "하루 하루가 소중해요.",
-        "늘 최선을 다하세요!",
-        "긍정의 힘이 당신을 이끌어요.",
-        "오늘도 멋진 하루가 되길 바랍니다.",
-        "작은 성공이 큰 기쁨으로 이어지길."
-    ]
-
     # USERS_UID를 기반으로 챌린지에 참여중인 유저를 가져와 challenge_user 생성
     for uid in challenge_create.USERS_UID:
         user = get_user_by_uid(db, uid.USER_UID)
 
         db_challenge_user = ChallengeUser(
             CHALLENGE_MST=db_challenge,
-            COMMENT=random.choice(comments),
+            # COMMENT=random.choice(comments),
             USER=user,
             IS_OWNER=current_user == user if True else False,
             ACCEPT_STATUS=InviteAcceptType.ACCEPTED if current_user == user else InviteAcceptType.PENDING
@@ -412,6 +404,14 @@ def start_challenge(db: Session, challenge_mst_no: int, current_user: User, star
 
     challenge.START_DT = start_dt
     challenge.CHALLENGE_STATUS = ChallengeStatusType.PROGRESS
+
+    comments = [
+        "하루 하루가 소중해요.",
+        "늘 최선을 다하세요!",
+        "긍정의 힘이 당신을 이끌어요.",
+        "오늘도 멋진 하루가 되길 바랍니다.",
+        "작은 성공이 큰 기쁨으로 이어지길."
+    ]
 
     # ACCEPTED 상태가 아닌 ChallengeUser 삭제
     db.query(ChallengeUser).filter(
@@ -435,6 +435,8 @@ def start_challenge(db: Session, challenge_mst_no: int, current_user: User, star
         #     END_DT=challenge.START_DT + timedelta(days=7),
         # )
         # db.add(db_team)
+
+        challenge_user.COMMENT = random.choice(comments)
 
         for item in items:
             db_item_user = ItemUser(
@@ -463,7 +465,17 @@ def start_challenge_server(db: Session, challenge: ChallengeMaster):
 
     items = db.query(Item).all()
 
+    comments = [
+        "하루 하루가 소중해요.",
+        "늘 최선을 다하세요!",
+        "긍정의 힘이 당신을 이끌어요.",
+        "오늘도 멋진 하루가 되길 바랍니다.",
+        "작은 성공이 큰 기쁨으로 이어지길."
+    ]
+
     for challenge_user in challenge_users:
+        challenge_user.COMMENT = random.choice(comments)
+
         for item in items:
             db_item_user = ItemUser(
                 ITEM_NO=item.ITEM_NO,
