@@ -70,6 +70,22 @@ def challenge_update(challenge_mst_no: int, _challenge_update: challenge_schema.
     return message
 
 
+@router.put("/add_user/{challenge_mst_no}")
+def challenge_add_user(challenge_mst_no: int, new_user_uid: int,
+                       db: Session = Depends(get_db),
+                       current_user: User = Depends(get_current_user)):
+    message = challenge_crud.challenge_add_user(db, challenge_mst_no, new_user_uid, current_user)
+    return message
+
+
+@router.delete("/delete_user/{challenge_mst_no}")
+def challenge_remove_user(challenge_mst_no: int, user_uid: int,
+                          db: Session = Depends(get_db),
+                          current_user: User = Depends(get_current_user)):
+    message = challenge_crud.challenge_remove_user(db, challenge_mst_no, user_uid, current_user)
+    return message
+
+
 @router.put("/link/{challenge_mst_no}")
 def challenge_update(challenge_mst_no: int,
                      db: Session = Depends(get_db),

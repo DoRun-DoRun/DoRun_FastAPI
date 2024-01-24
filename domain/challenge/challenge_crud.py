@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, date
 import random
 from math import ceil
+from typing import Type
 
 from fastapi import HTTPException
 from sqlalchemy import func, Integer, and_
@@ -8,21 +9,19 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload, aliased
 
 from domain.challenge.challenge_schema import ChallengeCreate, ChallengeParticipant, \
-    PersonDailyGoalPydantic, \
-    AdditionalGoalPydantic, ChallengeList, ChallengeInvite, \
+    AdditionalGoalPydantic, ChallengeInvite, \
     ChallengeUserList, GetChallengeUserDetail, ChallengeUserListModel, GetChallengeHistory, EmojiUser, DiaryPydantic, \
-    ItemPydantic, ChallengeMSTProgress, UserStatus
+    ItemPydantic, UserStatus
 from domain.desc.utils import calculate_challenge_progress
-from domain.user import user_crud
 from domain.user.user_crud import get_user_by_uid, get_equipped_avatar
 from models import ChallengeMaster, User, ChallengeUser, PersonDailyGoal, AdditionalGoal, ItemUser, \
     Item, InviteAcceptType, PersonDailyGoalComplete, AvatarType, ChallengeStatusType, \
-    DailyCompleteUser, UserSetting
+    DailyCompleteUser
 
 
 # 기능 함수
 # Challenge Master 객체를 Challenge Mst No로 가져오기
-def get_challenge_master_by_id(db: Session, challenge_mst_no: int) -> ChallengeMaster:
+def get_challenge_master_by_id(db: Session, challenge_mst_no: int) -> Type[ChallengeMaster]:
     challenge = db.query(ChallengeMaster).filter(ChallengeMaster.CHALLENGE_MST_NO == challenge_mst_no).first()
 
     if not challenge:
@@ -737,6 +736,64 @@ def challenge_update(db: Session, challenge_mst_no: int, _challenge_update: Chal
     db.commit()
 
     return {"message": "챌린지가 성공적으로 업데이트 되었습니다."}
+
+
+def challenge_add_user(db: Session, challenge_mst_no: int, new_user_uid: int, current_user: User):
+    # 챌린지 정보 가져오기
+    challenge = get_challenge_master_by_id(db, challenge_mst_no)
+
+    # 현재 사용자가 챌린지의 소유자인지 확인
+    challenge_user = get_challenge_user_by_user_no(db, challenge_mst_no, current_user.USER_NO)
+    if not challenge_user.IS_OWNER:
+        raise HTTPException(status_code=401, detail="수정 권한이 존재하지 않습니다.")
+
+    # 새로운 사용자 정보 가져오기
+    new_user = get_user_by_uid(db, new_user_uid)
+
+    # 챌린지에 이미 있는 사용자인지 확인
+    existing_user_ids = {cu.USER.USER_NO for cu in challenge.USERS}
+    if new_user.USER_NO in existing_user_ids:
+        raise HTTPException(status_code=400, detail="사용자가 이미 챌린지에 존재합니다.")
+
+    # 새로운 사용자를 챌린지에 추가
+    db_challenge_user = ChallengeUser(
+        CHALLENGE_MST=challenge,
+        USER=new_user,
+        IS_OWNER=False,  # 새로 추가되는 사용자는 소유자가 아님
+        ACCEPT_STATUS=InviteAcceptType.PENDING
+    )
+    db.add(db_challenge_user)
+    db.commit()
+
+    return {"message": "새 사용자가 챌린지에 추가되었습니다."}
+
+
+def challenge_remove_user(db: Session, challenge_mst_no: int, user_uid: int, current_user: User):
+    # 챌린지 정보 가져오기
+    challenge = get_challenge_master_by_id(db, challenge_mst_no)
+
+    # 현재 사용자가 챌린지의 소유자인지 확인
+    challenge_user = get_challenge_user_by_user_no(db, challenge_mst_no, current_user.USER_NO)
+    if not challenge_user.IS_OWNER:
+        raise HTTPException(status_code=401, detail="삭제 권한이 존재하지 않습니다.")
+
+    # 삭제할 사용자 정보 가져오기
+    user_to_remove = get_user_by_uid(db, user_uid)
+
+    # 삭제할 사용자가 챌린지에 있는지 확인
+    challenge_user_to_remove = db.query(ChallengeUser).filter_by(
+        CHALLENGE_MST_NO=challenge.CHALLENGE_MST_NO,
+        USER_NO=user_to_remove.USER_NO
+    ).first()
+
+    if not challenge_user_to_remove:
+        raise HTTPException(status_code=404, detail="챌린지에서 사용자를 찾을 수 없습니다.")
+
+    # 사용자를 챌린지에서 삭제
+    db.delete(challenge_user_to_remove)
+    db.commit()
+
+    return {"message": "사용자가 챌린지에서 삭제되었습니다."}
 
 
 # 삭제 시, 기존 챌린지 조회에 대한 예외처리 필요

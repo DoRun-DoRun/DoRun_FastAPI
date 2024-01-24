@@ -90,9 +90,6 @@ def delete_user(db: Session = Depends(get_db), current_user: User = Depends(get_
     if current_user.USER_EMAIL:
         current_user.USER_EMAIL = current_user.USER_EMAIL + "#disabled"
 
-    if current_user.ID_TOKEN:
-        current_user.ID_TOKEN = None
-
     db.commit()
 
     return {
