@@ -10,7 +10,7 @@ from domain.desc.utils import select_randomly_with_probability, RewardType, get_
 from models import ItemUser, ItemLog, AdditionalGoal, PersonDailyGoal, AvatarType, User, AvatarUser
 
 
-def get_item(db: Session, current_user: User, challenge_user):
+def get_item(db: Session, current_user: User, challenge_user_no):
     select_item_type = select_randomly_with_probability(5, 95, 0, 0)
 
     if select_item_type == RewardType.AVATAR:
@@ -24,7 +24,7 @@ def get_item(db: Session, current_user: User, challenge_user):
 
     item = get_random_item(db)
     item_user = db.query(ItemUser).filter(
-        ItemUser.CHALLENGE_USER_NO == challenge_user.CHALLENGE_USER_NO,
+        ItemUser.CHALLENGE_USER_NO == challenge_user_no,
         ItemUser.ITEM_NO == item.ITEM_NO).first()
     if not item_user:
         raise HTTPException(status_code=404, detail="사용자 아이템 정보가 없습니다.")

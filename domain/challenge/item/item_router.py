@@ -16,9 +16,9 @@ router = APIRouter(
 
 
 @router.post("")
-def use_item(challenge_user: int, db: Session = Depends(get_db),
+def use_item(challenge_user_no: int, db: Session = Depends(get_db),
              current_user: User = Depends(get_current_user)):
-    message = get_item(db, current_user, challenge_user)
+    message = get_item(db, current_user, challenge_user_no)
 
     return message
 
