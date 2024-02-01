@@ -277,7 +277,8 @@ def get_challenge_detail(db: Session, user_no: int, challenge_mst_no: int):
     # team_goals = get_team_weekly_goal_by_user(db, challenge_mst_no, current_day)
 
     today = datetime.utcnow().date()
-    day_start = datetime(today.year, today.month, today.day - 1, 19, 0, 0)
+    print(today)
+    day_start = datetime(today.year, today.month, today.day, 19, 0, 0) - timedelta(days=1)
     day_end = day_start + timedelta(days=1) - timedelta(minutes=1)
 
     existing_diary = db.query(PersonDailyGoalComplete).filter(
