@@ -66,7 +66,7 @@ def create_diary(_create_diary: CreateDiary, db: Session = Depends(get_db),
         raise HTTPException(status_code=401, detail="현재 접속중인 유저와 Challenge_user가 다릅니다.")
 
     today = datetime.utcnow().date()
-    day_start = datetime(today.year, today.month, today.day - 1, 19, 0, 0)
+    day_start = datetime(today.year, today.month, today.day, 19, 0, 0) - timedelta(days=1)
     day_end = day_start + timedelta(days=1) - timedelta(minutes=1)
 
     existing_diary = db.query(PersonDailyGoalComplete).filter(
